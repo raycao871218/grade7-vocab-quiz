@@ -49,6 +49,27 @@ npm run dev
 npm run dev:api
 ```
 
+## Docker 部署
+
+普通联网环境：
+
+```bash
+npm run build
+docker compose up -d --build
+```
+
+Synology NAS 如果已有 Container Manager 但无法联网拉 Python 镜像，可以使用 NAS 专用 compose 文件。该文件基于 NAS 上已有的 `node:22-trixie` 镜像，并通过本地准备的 `.docker-wheels/` 和 `get-pip.py` 离线安装 Python 依赖：
+
+```bash
+docker compose -f docker-compose.nas.yml up -d --build
+```
+
+服务启动后访问：
+
+```text
+http://NAS_IP:8000/
+```
+
 ## 数据库配置
 
 在 `.env` 中修改：

@@ -1,0 +1,11 @@
+services:
+  grade7-vocab-quiz:
+    build:
+      context: .
+      dockerfile: Dockerfile.nas
+    image: grade7-vocab-quiz:nas
+    container_name: grade7-vocab-quiz
+    restart: unless-stopped
+    network_mode: host
+    env_file:
+      - .env

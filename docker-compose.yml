@@ -1,0 +1,11 @@
+services:
+  grade7-vocab-quiz:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: grade7-vocab-quiz
+    restart: unless-stopped
+    env_file:
+      - .env
+    ports:
+      - "8000:8000"
