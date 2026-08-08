@@ -4,8 +4,11 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite --host 127.0.0.1",
+    "dev": "vite",
+    "dev:api": ".venv/bin/uvicorn server.main:app --host 0.0.0.0 --port 8000",
     "build": "tsc -b && vite build",
+    "db:migrate": "node scripts/db-migrate.mjs",
+    "db:seed": "node scripts/seed-vocab.mjs",
     "preview": "vite preview --host 127.0.0.1",
     "lint": "tsc -b --noEmit"
   },
@@ -20,6 +23,7 @@
   "devDependencies": {
     "@types/node": "^26.2.0",
     "@types/react": "^19.2.18",
-    "@types/react-dom": "^19.2.4"
+    "@types/react-dom": "^19.2.4",
+    "pg": "^8.22.0"
   }
 }

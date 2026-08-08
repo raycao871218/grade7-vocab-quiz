@@ -1,6 +1,6 @@
 import { Check, Eye, Keyboard, ListChecks, RotateCcw, Shuffle, Trophy, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import type { AnswerRecord, QuizMode, VocabItem } from "./types";
+import type { AnswerRecord, QuizMode, SpellingDifficulty, VocabItem } from "./types";
 
 type VocabResponse = {
   sourcePath: string;
@@ -17,7 +17,19 @@ const modeLabels: Record<QuizMode, string> = {
 const modeHints: Record<QuizMode, string> = {
   choice: "看英文，选择正确中文。",
   typing: "看中文，输入英文。",
-  spelling: "看中文和提示，拼出英文。"
+  spelling: "按难度拼出英文。"
+};
+
+const difficultyLabels: Record<SpellingDifficulty, string> = {
+  easy: "简单",
+  medium: "中等",
+  hard: "困难"
+};
+
+const difficultyHints: Record<SpellingDifficulty, string> = {
+  easy: "显示中文和首尾字母提示。",
+  medium: "只显示中文。",
+  hard: "只显示全英文填空句。"
 };
 
 function shuffleArray<T>(items: T[]): T[] {
@@ -38,11 +50,21 @@ function makeMask(word: string): string {
     .join(" ");
 }
 
+function makeClozeSentence(item: VocabItem): string {
+  const primaryExample =
+    item.examples?.find((example) => example.difficulty === "hard" && example.isPrimary) ??
+    item.examples?.find((example) => example.difficulty === "hard") ??
+    item.examples?.[0];
+
+  return primaryExample?.blankedSentence ?? "Read the sentence and write the missing word.";
+}
+
 export default function App() {
   const [words, setWords] = useState<VocabItem[]>([]);
   const [sourcePath, setSourcePath] = useState("");
   const [error, setError] = useState("");
   const [mode, setMode] = useState<QuizMode>("choice");
+  const [spellingDifficulty, setSpellingDifficulty] = useState<SpellingDifficulty>("easy");
   const [includeBonus, setIncludeBonus] = useState(false);
   const [queue, setQueue] = useState<VocabItem[]>([]);
   const [index, setIndex] = useState(0);
@@ -107,6 +129,13 @@ export default function App() {
     setRecords([]);
   }
 
+  function changeSpellingDifficulty(nextDifficulty: SpellingDifficulty) {
+    setSpellingDifficulty(nextDifficulty);
+    setSelected("");
+    setTyped("");
+    setFeedback("idle");
+  }
+
   function submitAnswer(answer: string) {
     if (!current || feedback !== "idle") return;
 
@@ -134,7 +163,7 @@ export default function App() {
           <X aria-hidden="true" />
           <h1>词表没有读到</h1>
           <p>{error}</p>
-          <p>请检查 `.env` 里的 `VOCAB_SOURCE_PATH` 是否是有效的本机绝对路径。</p>
+          <p>请检查 `.env` 里的数据库连接信息和 `VOCAB_LIST_SLUG` 是否正确。</p>
         </section>
       </main>
     );
@@ -205,6 +234,24 @@ export default function App() {
             </button>
           ))}
         </div>
+
+        {mode === "spelling" && (
+          <div className="difficulty-panel">
+            <p>拼写难度</p>
+            <div className="difficulty-grid" aria-label="拼写自测难度">
+              {(["easy", "medium", "hard"] as SpellingDifficulty[]).map((item) => (
+                <button
+                  className={spellingDifficulty === item ? "difficulty-button active" : "difficulty-button"}
+                  key={item}
+                  onClick={() => changeSpellingDifficulty(item)}
+                  title={difficultyHints[item]}
+                >
+                  {difficultyLabels[item]}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         <label className="toggle-row">
           <input
@@ -285,14 +332,30 @@ export default function App() {
               submitAnswer(typed);
             }}
           >
-            <p className="prompt-label">{mode === "typing" ? "请写出英文" : "请根据提示拼写英文"}</p>
-            <h2 className="prompt-word chinese">{current.chinese}</h2>
-            {mode === "spelling" && <p className="spelling-mask">{makeMask(current.english)}</p>}
+            <p className="prompt-label">
+              {mode === "typing"
+                ? "请写出英文"
+                : spellingDifficulty === "hard"
+                  ? "请根据英文句子填空"
+                  : spellingDifficulty === "medium"
+                    ? "请根据中文拼写英文"
+                    : "请根据中文和提示拼写英文"}
+            </p>
+            {mode !== "spelling" || spellingDifficulty !== "hard" ? (
+              <h2 className="prompt-word chinese">{current.chinese}</h2>
+            ) : (
+              <p className="cloze-sentence">{makeClozeSentence(current)}</p>
+            )}
+            {mode === "spelling" && spellingDifficulty === "easy" && (
+              <p className="spelling-mask">{makeMask(current.english)}</p>
+            )}
             <input
               autoFocus
+              autoCapitalize="none"
+              autoComplete="off"
               disabled={feedback !== "idle"}
               onChange={(event) => setTyped(event.target.value)}
-              placeholder="输入英文"
+              placeholder={mode === "spelling" && spellingDifficulty === "hard" ? "填入空缺的英文" : "输入英文"}
               value={typed}
             />
             <button className="primary-button" disabled={feedback !== "idle" || typed.trim().length === 0}>
