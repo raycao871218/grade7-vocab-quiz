@@ -19,7 +19,8 @@ body {
 }
 
 button,
-input {
+input,
+select {
   font: inherit;
 }
 
@@ -87,6 +88,10 @@ p {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 6px;
+}
+
+.nav-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .mode-button,
@@ -240,12 +245,247 @@ p {
   font-size: 0.86rem;
 }
 
+.ghost-button.light {
+  border-color: #d4c8b6;
+  color: #24352c;
+}
+
 .quiz-panel {
   display: flex;
   flex-direction: column;
   justify-content: flex-start;
   gap: 18px;
   padding: 20px 18px 36px;
+}
+
+.login-panel {
+  display: grid;
+  gap: 16px;
+  width: min(440px, 100%);
+  border: 1px solid #dfd6c7;
+  border-radius: 8px;
+  padding: 24px;
+  background: #fffdf8;
+}
+
+.login-panel > svg {
+  width: 34px;
+  height: 34px;
+  color: #c75f4a;
+}
+
+.login-panel input {
+  width: 100%;
+  border: 1px solid #d4c8b6;
+  border-radius: 8px;
+  padding: 14px 16px;
+  background: #fffdf8;
+  color: #17201a;
+}
+
+.user-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  border: 1px solid #496052;
+  border-radius: 8px;
+  padding: 8px 10px;
+  background: #2b4035;
+}
+
+.user-row span {
+  overflow: hidden;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.user-row button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 8px;
+  width: 34px;
+  height: 34px;
+  background: transparent;
+  color: #fbfaf7;
+}
+
+.user-row svg {
+  width: 17px;
+  height: 17px;
+}
+
+.dashboard {
+  display: grid;
+  gap: 18px;
+  max-width: 860px;
+}
+
+.section-heading h2 {
+  margin-bottom: 8px;
+  color: #17201a;
+  font-size: clamp(1.8rem, 7vw, 3rem);
+  line-height: 1.08;
+}
+
+.section-heading p:last-child {
+  margin-bottom: 0;
+  color: #667367;
+}
+
+.task-card,
+.tool-card,
+.overview-grid > div,
+.review-row {
+  border: 1px solid #dfd6c7;
+  border-radius: 8px;
+  background: #fffdf8;
+}
+
+.task-card {
+  display: grid;
+  gap: 18px;
+  padding: 18px;
+}
+
+.task-card h3 {
+  margin: 8px 0 8px;
+  font-size: 1.35rem;
+}
+
+.task-card p {
+  margin-bottom: 0;
+  color: #667367;
+  line-height: 1.5;
+}
+
+.task-day {
+  color: #c75f4a;
+  font-weight: 900;
+}
+
+.overview-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.overview-grid > div {
+  padding: 14px;
+}
+
+.overview-grid strong,
+.overview-grid span {
+  display: block;
+}
+
+.overview-grid strong {
+  font-size: 1.45rem;
+}
+
+.overview-grid span {
+  margin-top: 4px;
+  color: #667367;
+  font-size: 0.84rem;
+}
+
+.tool-grid {
+  display: grid;
+  gap: 12px;
+}
+
+.tool-card {
+  display: grid;
+  gap: 8px;
+  min-height: 132px;
+  padding: 18px;
+  color: #24352c;
+  text-align: left;
+}
+
+.tool-card svg {
+  width: 24px;
+  height: 24px;
+  color: #c75f4a;
+}
+
+.tool-card strong {
+  font-size: 1.2rem;
+}
+
+.tool-card span {
+  color: #667367;
+}
+
+.light-panel p {
+  color: #7d6241;
+}
+
+.light-panel .difficulty-button {
+  background: #fffdf8;
+  border-color: #dfd6c7;
+  color: #24352c;
+}
+
+.light-panel .difficulty-button.active {
+  background: #f0c66b;
+  border-color: #f0c66b;
+  color: #17201a;
+}
+
+.select-row {
+  display: grid;
+  gap: 8px;
+  color: #7d6241;
+  font-weight: 800;
+}
+
+.select-row select {
+  width: min(260px, 100%);
+  border: 1px solid #d4c8b6;
+  border-radius: 8px;
+  padding: 12px 14px;
+  background: #fffdf8;
+  color: #17201a;
+}
+
+.review-list {
+  display: grid;
+  gap: 8px;
+}
+
+.review-row {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+  padding: 12px;
+  border-left-width: 5px;
+}
+
+.review-row.right {
+  border-left-color: #5b9b68;
+}
+
+.review-row.wrong {
+  border-left-color: #c75f4a;
+}
+
+.review-row strong,
+.review-row span,
+.review-row small {
+  display: block;
+}
+
+.review-row strong {
+  margin-bottom: 3px;
+}
+
+.review-row small {
+  margin-top: 3px;
+  color: #667367;
 }
 
 .quiz-topline {
@@ -444,6 +684,20 @@ p {
     gap: 14px;
   }
 
+  .task-card {
+    align-items: center;
+    grid-template-columns: 1fr auto;
+  }
+
+  .tool-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .review-row {
+    align-items: center;
+    grid-template-columns: 1fr minmax(160px, 240px);
+  }
+
   .primary-button {
     width: fit-content;
   }
@@ -484,6 +738,10 @@ p {
   }
 
   .mode-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .nav-grid {
     grid-template-columns: 1fr;
   }
 

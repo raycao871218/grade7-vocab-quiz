@@ -11,10 +11,14 @@
 
 ## 功能
 
+- 开屏输入用户名即可登录，不需要密码和注册。
 - 后端从 PostgreSQL 读取词表、单词、中文释义和英文例句。
-- 三种练习模式：英译中选择、看中文拼英文、拼写自测。
-- 拼写自测支持三档难度：简单显示中文和字母提示，中等只显示中文，困难显示英文填空句。
-- 记录正确率、进度和错题。
+- 默认进入总览页，展示每日任务。当前 Day 1 是中等难度拼写自测 100 个高频词。
+- 单词本包含英译中选择、看中文拼英文两个模块。
+- 拼写自测支持三档难度和数量选择，默认 30 个。
+- 所有词统一归类为高频词，不再区分加测词。
+- 每题答题记录会按用户名保存，可以在 Review 中复盘。
+- 当前用户、功能页和练习进度会保存在浏览器本地，刷新后不会跳回默认页。
 
 ## 初始化
 
@@ -96,8 +100,12 @@ React 前端 -> FastAPI /api/vocab -> PostgreSQL
 ## 后端接口
 
 - `GET /api/health`：健康检查。
+- `POST /api/login`：按用户名创建或更新用户。
 - `GET /api/vocab`：读取 `.env` 中 `VOCAB_LIST_SLUG` 指定的词表。
 - `GET /api/vocab?list_slug=grade7-renjiao-placement`：读取指定词表。
+- `POST /api/answers`：保存单题答题记录。
+- `GET /api/users/{username}/records`：查询 Review 记录。
+- `GET /api/users/{username}/summary`：查询总览统计。
 
 ## 数据结构
 
@@ -106,3 +114,5 @@ React 前端 -> FastAPI /api/vocab -> PostgreSQL
 - `vocab_list_items`：词条在某个词表里的顺序、是否加测。
 - `vocab_meanings`：释义，当前使用 `zh-CN`。
 - `vocab_examples`：例句和填空句，当前困难模式读取 `hard` 难度例句。
+- `app_users`：简单用户名登录用户。
+- `answer_records`：按用户保存每题答题记录。

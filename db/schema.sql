@@ -60,3 +60,34 @@ CREATE INDEX IF NOT EXISTS vocab_meanings_word_idx
 
 CREATE INDEX IF NOT EXISTS vocab_examples_word_idx
   ON vocab_examples (word_id, difficulty, is_primary);
+
+CREATE TABLE IF NOT EXISTS app_users (
+  id BIGSERIAL PRIMARY KEY,
+  username TEXT NOT NULL UNIQUE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  last_seen_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS answer_records (
+  id BIGSERIAL PRIMARY KEY,
+  username TEXT NOT NULL REFERENCES app_users(username) ON DELETE CASCADE,
+  session_id TEXT NOT NULL,
+  mode TEXT NOT NULL,
+  difficulty TEXT,
+  question_count INTEGER,
+  word_display_order INTEGER NOT NULL,
+  english TEXT NOT NULL,
+  chinese TEXT NOT NULL,
+  prompt TEXT NOT NULL DEFAULT '',
+  user_answer TEXT NOT NULL,
+  correct BOOLEAN NOT NULL,
+  answered_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT answer_records_mode_check CHECK (mode IN ('choice', 'typing', 'spelling')),
+  CONSTRAINT answer_records_difficulty_check CHECK (difficulty IS NULL OR difficulty IN ('easy', 'medium', 'hard'))
+);
+
+CREATE INDEX IF NOT EXISTS answer_records_username_answered_idx
+  ON answer_records (username, answered_at DESC);
+
+CREATE INDEX IF NOT EXISTS answer_records_username_correct_idx
+  ON answer_records (username, correct, answered_at DESC);
