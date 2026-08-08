@@ -67,7 +67,7 @@ docker compose -f docker-compose.nas.yml up -d --build
 服务启动后访问：
 
 ```text
-http://NAS_IP:8000/
+http://NAS_IP:29999/
 ```
 
 ## 数据库配置
