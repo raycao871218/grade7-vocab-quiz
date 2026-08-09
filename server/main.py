@@ -4,6 +4,7 @@ from typing import Any
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
@@ -59,6 +60,12 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+NO_STORE_HEADERS = {
+    "Cache-Control": "no-store, max-age=0, must-revalidate",
+    "Pragma": "no-cache",
+    "Expires": "0",
+}
 
 
 @app.get("/api/health")
@@ -125,4 +132,12 @@ def get_summary(username: str) -> dict[str, Any]:
 
 dist_dir = Path(__file__).resolve().parent.parent / "dist"
 if dist_dir.exists():
+    @app.get("/", include_in_schema=False)
+    def frontend_index() -> FileResponse:
+        return FileResponse(dist_dir / "index.html", headers=NO_STORE_HEADERS)
+
+    @app.get("/index.html", include_in_schema=False)
+    def frontend_index_html() -> FileResponse:
+        return FileResponse(dist_dir / "index.html", headers=NO_STORE_HEADERS)
+
     app.mount("/", StaticFiles(directory=dist_dir, html=True), name="frontend")

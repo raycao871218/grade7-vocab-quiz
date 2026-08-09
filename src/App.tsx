@@ -121,6 +121,10 @@ function serializeRecords(records: AnswerRecord[]) {
   }));
 }
 
+function getQuizStateKey(currentUsername: string): string {
+  return `${QUIZ_STATE_KEY}:${currentUsername}`;
+}
+
 function getInitialSection(): AppSection {
   const saved = localStorage.getItem(SECTION_KEY) as AppSection | null;
   return saved && validSections.includes(saved) ? saved : "overview";
@@ -154,7 +158,7 @@ export default function App() {
         setWords(data.words);
         setSourcePath(data.sourcePath);
 
-        const rawQuizState = localStorage.getItem(QUIZ_STATE_KEY);
+        const rawQuizState = username ? localStorage.getItem(getQuizStateKey(username)) : null;
         if (!rawQuizState) return;
 
         const persisted = JSON.parse(rawQuizState) as PersistedQuizState;
@@ -192,11 +196,12 @@ export default function App() {
   useEffect(() => {
     if (!username) return;
     localStorage.setItem(USERNAME_KEY, username);
+    setSavedRecords([]);
     void refreshUserData(username);
   }, [username]);
 
   useEffect(() => {
-    if (queue.length === 0) return;
+    if (!username || queue.length === 0) return;
     const persisted: PersistedQuizState = {
       section: activeSection,
       mode,
@@ -208,8 +213,9 @@ export default function App() {
       taskId: activeTaskId,
       records: serializeRecords(records)
     };
-    localStorage.setItem(QUIZ_STATE_KEY, JSON.stringify(persisted));
-  }, [activeSection, activeTaskId, index, mode, questionCount, queue, records, sessionId, spellingDifficulty]);
+    localStorage.setItem(getQuizStateKey(username), JSON.stringify(persisted));
+    localStorage.removeItem(QUIZ_STATE_KEY);
+  }, [activeSection, activeTaskId, index, mode, questionCount, queue, records, sessionId, spellingDifficulty, username]);
 
   const current = queue[index];
   const correctCount = records.filter((record) => record.correct).length;
@@ -282,14 +288,29 @@ export default function App() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ username: nextUsername })
     });
+    setActiveSection("overview");
+    setQueue([]);
+    setIndex(0);
+    setSelected("");
+    setTyped("");
+    setFeedback("idle");
+    setRecords([]);
+    setSavedRecords([]);
+    setActiveTaskId(undefined);
+    localStorage.removeItem(QUIZ_STATE_KEY);
     setUsername(nextUsername);
   }
 
   function logout() {
+    if (username) localStorage.removeItem(getQuizStateKey(username));
     setUsername("");
     setLoginName("");
     setActiveSection("overview");
     setActiveTaskId(undefined);
+    setQueue([]);
+    setIndex(0);
+    setRecords([]);
+    setSavedRecords([]);
     localStorage.removeItem(USERNAME_KEY);
     localStorage.removeItem(QUIZ_STATE_KEY);
   }
@@ -405,6 +426,7 @@ export default function App() {
     setIndex(0);
     setRecords([]);
     setActiveTaskId(undefined);
+    if (username) localStorage.removeItem(getQuizStateKey(username));
     localStorage.removeItem(QUIZ_STATE_KEY);
     openSection("overview");
   }
