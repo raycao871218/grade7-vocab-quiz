@@ -50,7 +50,7 @@ const SECTION_KEY = "grade7-vocab-section";
 const QUIZ_STATE_KEY = "grade7-vocab-quiz-state";
 
 const sectionLabels: Record<AppSection, string> = {
-  overview: "总览",
+  overview: "任务",
   wordbook: "单词本",
   spelling: "拼写自测",
   review: "Review"
@@ -68,8 +68,8 @@ const difficultyLabels: Record<SpellingDifficulty, string> = {
   hard: "困难"
 };
 
-const quantityOptions = [10, 30, 50, 100, 120];
-const validSections: AppSection[] = ["overview", "wordbook", "spelling", "review"];
+const navSections: AppSection[] = ["overview", "wordbook", "review"];
+const validSections: AppSection[] = ["overview", "wordbook", "review"];
 
 function shuffleArray<T>(items: T[]): T[] {
   return [...items].sort(() => Math.random() - 0.5);
@@ -221,6 +221,7 @@ export default function App() {
   const day1InProgress = activeTaskId === "day1" && queue.length > 0 && index < queue.length;
   const day1ProgressText = day1InProgress ? `已做 ${Math.min(index, queue.length)} / ${queue.length} 题` : "中等难度 · 100 个高频词";
   const showQuizProgress = queue.length > 0 && activeSection !== "overview" && activeSection !== "review";
+  const showTaskSection = activeSection === "overview" || (activeSection === "spelling" && queue.length === 0);
 
   const choices = useMemo(() => {
     if (!current) return [];
@@ -299,6 +300,10 @@ export default function App() {
     setTyped("");
     setFeedback("idle");
     if (section === "review") void refreshUserData();
+  }
+
+  function isNavActive(section: AppSection) {
+    return activeSection === section || (section === "overview" && activeSection === "spelling");
   }
 
   function startQuiz(
@@ -470,15 +475,14 @@ export default function App() {
         </div>
 
         <div className="mode-grid nav-grid" aria-label="功能栏">
-          {(["overview", "wordbook", "spelling", "review"] as AppSection[]).map((section) => (
+          {navSections.map((section) => (
             <button
-              className={activeSection === section ? "mode-button active" : "mode-button"}
+              className={isNavActive(section) ? "mode-button active" : "mode-button"}
               key={section}
               onClick={() => openSection(section)}
             >
               {section === "overview" && <LayoutDashboard aria-hidden="true" />}
               {section === "wordbook" && <BookOpen aria-hidden="true" />}
-              {section === "spelling" && <Keyboard aria-hidden="true" />}
               {section === "review" && <History aria-hidden="true" />}
               {sectionLabels[section]}
             </button>
@@ -499,10 +503,10 @@ export default function App() {
       </aside>
 
       <section className="quiz-panel">
-        {activeSection === "overview" && (
+        {showTaskSection && (
           <section className="dashboard">
             <div className="section-heading">
-              <p className="prompt-label">总览</p>
+              <p className="prompt-label">任务</p>
               <h2>今日任务</h2>
             </div>
             <div className="task-card">
@@ -538,46 +542,6 @@ export default function App() {
                 <span>看中文，输入英文。</span>
               </button>
             </div>
-          </section>
-        )}
-
-        {activeSection === "spelling" && queue.length === 0 && (
-          <section className="dashboard">
-            <div className="section-heading">
-              <p className="prompt-label">拼写自测</p>
-              <h2>选择难度和数量</h2>
-            </div>
-            <div className="difficulty-panel light-panel">
-              <p>难度</p>
-              <div className="difficulty-grid" aria-label="拼写自测难度">
-                {(["easy", "medium", "hard"] as SpellingDifficulty[]).map((item) => (
-                  <button
-                    className={spellingDifficulty === item ? "difficulty-button active" : "difficulty-button"}
-                    key={item}
-                    onClick={() => setSpellingDifficulty(item)}
-                  >
-                    {difficultyLabels[item]}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <label className="select-row">
-              数量
-              <select
-                onChange={(event) => setQuestionCount(Number(event.target.value))}
-                value={questionCount}
-              >
-                {quantityOptions.map((count) => (
-                  <option key={count} value={count}>
-                    {count} 个
-                  </option>
-                ))}
-              </select>
-            </label>
-            <button className="primary-button" onClick={() => startQuiz("spelling", { count: questionCount, section: "spelling" })}>
-              <Play aria-hidden="true" />
-              开始自测
-            </button>
           </section>
         )}
 
