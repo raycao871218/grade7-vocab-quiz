@@ -367,7 +367,7 @@ export default function App() {
         username,
         session_id: sessionId,
         mode,
-        difficulty: mode === "spelling" ? spellingDifficulty : null,
+        difficulty: spellingDifficulty,
         question_count: questionCount,
         word_display_order: item.id,
         english: item.english,
@@ -527,19 +527,39 @@ export default function App() {
           <section className="dashboard">
             <div className="section-heading">
               <p className="prompt-label">单词本</p>
-              <h2>中英互译</h2>
+              <h2>选择难度和方向</h2>
               <p>全部词汇统一归类为高频词，不再区分加测词。</p>
             </div>
+            <div className="difficulty-panel light-panel">
+              <p>难度</p>
+              <div className="difficulty-grid" aria-label="单词本难度">
+                {(["easy", "medium", "hard"] as SpellingDifficulty[]).map((item) => (
+                  <button
+                    className={spellingDifficulty === item ? "difficulty-button active" : "difficulty-button"}
+                    key={item}
+                    onClick={() => setSpellingDifficulty(item)}
+                  >
+                    {difficultyLabels[item]}
+                  </button>
+                ))}
+              </div>
+            </div>
             <div className="tool-grid">
-              <button className="tool-card" onClick={() => startQuiz("choice", { count: allWords.length, section: "wordbook" })}>
+              <button
+                className="tool-card"
+                onClick={() => startQuiz("typing", { difficulty: spellingDifficulty, count: allWords.length, section: "wordbook" })}
+              >
+                <Keyboard aria-hidden="true" />
+                <strong>中译英</strong>
+                <span>看中文，输入英文。简单难度会给一点提示。</span>
+              </button>
+              <button
+                className="tool-card"
+                onClick={() => startQuiz("choice", { difficulty: spellingDifficulty, count: allWords.length, section: "wordbook" })}
+              >
                 <Eye aria-hidden="true" />
                 <strong>英译中</strong>
                 <span>看英文，选择中文意思。</span>
-              </button>
-              <button className="tool-card" onClick={() => startQuiz("typing", { count: allWords.length, section: "wordbook" })}>
-                <Keyboard aria-hidden="true" />
-                <strong>中译英</strong>
-                <span>看中文，输入英文。</span>
               </button>
             </div>
           </section>
@@ -601,7 +621,7 @@ export default function App() {
               再来一轮
             </button>
             <button className="ghost-button light" onClick={clearFinishedQuiz}>
-              回到总览
+              回到任务
             </button>
             {mistakes.length > 0 && (
               <div className="mistake-list">
@@ -675,7 +695,7 @@ export default function App() {
                 ) : (
                   <p className="cloze-sentence">{makeClozeSentence(current)}</p>
                 )}
-                {mode === "spelling" && spellingDifficulty === "easy" && (
+                {(mode === "spelling" || mode === "typing") && spellingDifficulty === "easy" && (
                   <p className="spelling-mask">{makeMask(current.english)}</p>
                 )}
                 <input
