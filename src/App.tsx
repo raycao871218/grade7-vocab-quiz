@@ -13,7 +13,7 @@ import {
   Trophy,
   X
 } from "lucide-react";
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import type {
   AnswerRecord,
   AppSection,
@@ -125,6 +125,16 @@ function getQuizStateKey(currentUsername: string): string {
   return `${QUIZ_STATE_KEY}:${currentUsername}`;
 }
 
+function formatAnswerDuration(durationMs: number | null): string {
+  if (durationMs === null) return "未记录用时";
+  if (durationMs < 1000) return "用时不到 1 秒";
+  const seconds = durationMs / 1000;
+  if (seconds < 60) return `用时 ${seconds.toFixed(seconds < 10 ? 1 : 0)} 秒`;
+  const minutes = Math.floor(seconds / 60);
+  const remainingSeconds = Math.round(seconds % 60);
+  return `用时 ${minutes} 分 ${remainingSeconds} 秒`;
+}
+
 function getInitialSection(): AppSection {
   const saved = localStorage.getItem(SECTION_KEY) as AppSection | null;
   return saved && validSections.includes(saved) ? saved : "overview";
@@ -149,6 +159,7 @@ export default function App() {
   const [feedback, setFeedback] = useState<"idle" | "right" | "wrong">("idle");
   const [records, setRecords] = useState<AnswerRecord[]>([]);
   const [savedRecords, setSavedRecords] = useState<SavedAnswerRecord[]>([]);
+  const questionStartedAt = useRef<number | null>(null);
 
   useEffect(() => {
     fetch("/api/vocab")
@@ -228,6 +239,10 @@ export default function App() {
   const day1ProgressText = day1InProgress ? `已做 ${Math.min(index, queue.length)} / ${queue.length} 题` : "中等难度 · 100 个高频词";
   const showQuizProgress = queue.length > 0 && activeSection !== "overview" && activeSection !== "review";
   const showTaskSection = activeSection === "overview" || (activeSection === "spelling" && queue.length === 0);
+
+  useEffect(() => {
+    questionStartedAt.current = current ? performance.now() : null;
+  }, [current?.id, index, sessionId]);
 
   const choices = useMemo(() => {
     if (!current) return [];
@@ -379,7 +394,7 @@ export default function App() {
     startQuiz(mode, { difficulty: spellingDifficulty, count: questionCount, section: activeSection });
   }
 
-  function saveAnswer(answer: string, correct: boolean, item: VocabItem) {
+  function saveAnswer(answer: string, correct: boolean, item: VocabItem, answerDurationMs: number | null) {
     if (!username) return;
     void fetch("/api/answers", {
       method: "POST",
@@ -395,7 +410,8 @@ export default function App() {
         chinese: item.chinese,
         prompt: makePrompt(mode, spellingDifficulty, item),
         user_answer: answer,
-        correct
+        correct,
+        answer_duration_ms: answerDurationMs
       })
     }).then(() => refreshUserData());
   }
@@ -408,10 +424,12 @@ export default function App() {
       mode === "choice"
         ? answer === expected
         : normalizeAnswer(answer) === normalizeAnswer(expected);
+    const answerDurationMs =
+      questionStartedAt.current === null ? null : Math.max(0, Math.round(performance.now() - questionStartedAt.current));
 
     setRecords((previous) => [...previous, { item: current, userAnswer: answer, correct }]);
     setFeedback(correct ? "right" : "wrong");
-    saveAnswer(answer, correct, current);
+    saveAnswer(answer, correct, current, answerDurationMs);
   }
 
   function nextQuestion() {
@@ -621,6 +639,7 @@ export default function App() {
                         <div>
                           <span>{record.userAnswer}</span>
                           <small>{record.correct ? "答对了" : "需要再记一下"}</small>
+                          <small>{formatAnswerDuration(record.answerDurationMs)}</small>
                         </div>
                       </div>
                     ))}

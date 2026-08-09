@@ -37,6 +37,7 @@ class AnswerRecordRequest(BaseModel):
     prompt: str = ""
     user_answer: str
     correct: bool
+    answer_duration_ms: int | None = Field(default=None, ge=0)
 
 
 @asynccontextmanager
@@ -114,6 +115,7 @@ def save_answer(payload: AnswerRecordRequest) -> dict[str, Any]:
             "prompt": payload.prompt,
             "user_answer": payload.user_answer,
             "correct": payload.correct,
+            "answer_duration_ms": payload.answer_duration_ms,
         }
     )
     return {"record": record}

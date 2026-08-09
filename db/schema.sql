@@ -81,10 +81,14 @@ CREATE TABLE IF NOT EXISTS answer_records (
   prompt TEXT NOT NULL DEFAULT '',
   user_answer TEXT NOT NULL,
   correct BOOLEAN NOT NULL,
+  answer_duration_ms INTEGER,
   answered_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   CONSTRAINT answer_records_mode_check CHECK (mode IN ('choice', 'typing', 'spelling')),
   CONSTRAINT answer_records_difficulty_check CHECK (difficulty IS NULL OR difficulty IN ('easy', 'medium', 'hard'))
 );
+
+ALTER TABLE answer_records
+  ADD COLUMN IF NOT EXISTS answer_duration_ms INTEGER;
 
 CREATE INDEX IF NOT EXISTS answer_records_username_answered_idx
   ON answer_records (username, answered_at DESC);

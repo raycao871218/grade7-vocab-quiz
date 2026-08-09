@@ -108,9 +108,10 @@ def insert_answer_record(record: dict[str, Any]) -> dict[str, Any]:
                   chinese,
                   prompt,
                   user_answer,
-                  correct
+                  correct,
+                  answer_duration_ms
                 )
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 RETURNING
                   id,
                   username,
@@ -124,6 +125,7 @@ def insert_answer_record(record: dict[str, Any]) -> dict[str, Any]:
                   prompt,
                   user_answer AS "userAnswer",
                   correct,
+                  answer_duration_ms AS "answerDurationMs",
                   answered_at AS "answeredAt"
                 """,
                 (
@@ -138,6 +140,7 @@ def insert_answer_record(record: dict[str, Any]) -> dict[str, Any]:
                     record.get("prompt", ""),
                     record["user_answer"],
                     record["correct"],
+                    record.get("answer_duration_ms"),
                 ),
             )
             return dict(cursor.fetchone())
@@ -162,6 +165,7 @@ def fetch_answer_records(username: str, limit: int = 200) -> list[dict[str, Any]
                   prompt,
                   user_answer AS "userAnswer",
                   correct,
+                  answer_duration_ms AS "answerDurationMs",
                   answered_at AS "answeredAt"
                 FROM answer_records
                 WHERE username = %s

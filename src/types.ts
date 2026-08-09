@@ -38,6 +38,7 @@ export type SavedAnswerRecord = {
   prompt: string;
   userAnswer: string;
   correct: boolean;
+  answerDurationMs: number | null;
   answeredAt: string;
 };
 
