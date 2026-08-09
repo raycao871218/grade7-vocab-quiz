@@ -321,7 +321,8 @@ p {
 .dashboard {
   display: grid;
   gap: 18px;
-  max-width: 860px;
+  width: min(760px, 100%);
+  margin: 0 auto;
 }
 
 .section-heading h2 {
@@ -339,7 +340,7 @@ p {
 .task-card,
 .tool-card,
 .overview-grid > div,
-.review-row {
+.review-session {
   border: 1px solid #dfd6c7;
   border-radius: 8px;
   background: #fffdf8;
@@ -454,15 +455,53 @@ p {
 
 .review-list {
   display: grid;
-  gap: 8px;
+  gap: 10px;
+}
+
+.review-session {
+  overflow: hidden;
+}
+
+.review-session summary {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.review-session summary::-webkit-details-marker {
+  display: none;
+}
+
+.review-session summary strong,
+.review-session summary span {
+  display: block;
+}
+
+.review-session summary span {
+  margin-top: 4px;
+  color: #667367;
+  font-size: 0.84rem;
+}
+
+.session-records {
+  display: grid;
+  border-top: 1px solid #eadfce;
 }
 
 .review-row {
   display: grid;
   grid-template-columns: 1fr;
   gap: 10px;
-  padding: 12px;
+  padding: 12px 14px;
+  border-top: 1px solid #eadfce;
   border-left-width: 5px;
+  border-left-style: solid;
+}
+
+.review-row:first-child {
+  border-top: 0;
 }
 
 .review-row.right {
@@ -696,6 +735,11 @@ p {
   .review-row {
     align-items: center;
     grid-template-columns: 1fr minmax(160px, 240px);
+  }
+
+  .review-session summary {
+    align-items: center;
+    grid-template-columns: 1fr auto;
   }
 
   .primary-button {

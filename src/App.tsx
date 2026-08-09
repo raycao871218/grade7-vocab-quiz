@@ -1,7 +1,6 @@
 import {
   BookOpen,
   Check,
-  ClipboardList,
   Eye,
   History,
   Keyboard,
@@ -21,7 +20,6 @@ import type {
   QuizMode,
   SavedAnswerRecord,
   SpellingDifficulty,
-  UserSummary,
   VocabItem
 } from "./types";
 
@@ -35,10 +33,6 @@ type ReviewResponse = {
   records: SavedAnswerRecord[];
 };
 
-type SummaryResponse = {
-  summary: UserSummary;
-};
-
 type PersistedQuizState = {
   section: AppSection;
   mode: QuizMode;
@@ -47,6 +41,7 @@ type PersistedQuizState = {
   queueIds: number[];
   index: number;
   sessionId: string;
+  taskId?: string;
   records: Array<{ id: number; english: string; chinese: string; userAnswer: string; correct: boolean }>;
 };
 
@@ -144,12 +139,12 @@ export default function App() {
   const [queue, setQueue] = useState<VocabItem[]>([]);
   const [index, setIndex] = useState(0);
   const [sessionId, setSessionId] = useState(createSessionId);
+  const [activeTaskId, setActiveTaskId] = useState<string | undefined>();
   const [selected, setSelected] = useState("");
   const [typed, setTyped] = useState("");
   const [feedback, setFeedback] = useState<"idle" | "right" | "wrong">("idle");
   const [records, setRecords] = useState<AnswerRecord[]>([]);
   const [savedRecords, setSavedRecords] = useState<SavedAnswerRecord[]>([]);
-  const [summary, setSummary] = useState<UserSummary | null>(null);
 
   useEffect(() => {
     fetch("/api/vocab")
@@ -175,6 +170,7 @@ export default function App() {
         setQueue(restoredQueue);
         setIndex(Math.min(persisted.index, restoredQueue.length));
         setSessionId(persisted.sessionId);
+        setActiveTaskId(persisted.taskId);
         setRecords(
           persisted.records
             .map((record) => {
@@ -209,10 +205,11 @@ export default function App() {
       queueIds: queue.map((item) => item.id),
       index,
       sessionId,
+      taskId: activeTaskId,
       records: serializeRecords(records)
     };
     localStorage.setItem(QUIZ_STATE_KEY, JSON.stringify(persisted));
-  }, [activeSection, index, mode, questionCount, queue, records, sessionId, spellingDifficulty]);
+  }, [activeSection, activeTaskId, index, mode, questionCount, queue, records, sessionId, spellingDifficulty]);
 
   const current = queue[index];
   const correctCount = records.filter((record) => record.correct).length;
@@ -221,6 +218,9 @@ export default function App() {
   const progress = queue.length === 0 ? 0 : Math.min(100, Math.round((index / queue.length) * 100));
   const mistakes = records.filter((record) => !record.correct);
   const allWords = words;
+  const day1InProgress = activeTaskId === "day1" && queue.length > 0 && index < queue.length;
+  const day1ProgressText = day1InProgress ? `已做 ${Math.min(index, queue.length)} / ${queue.length} 题` : "中等难度 · 100 个高频词";
+  const showQuizProgress = queue.length > 0 && activeSection !== "overview" && activeSection !== "review";
 
   const choices = useMemo(() => {
     if (!current) return [];
@@ -230,19 +230,45 @@ export default function App() {
     return shuffleArray([current.chinese, ...wrongChoices]);
   }, [allWords, current]);
 
+  const reviewSessions = useMemo(() => {
+    const groups = new Map<string, SavedAnswerRecord[]>();
+    savedRecords.forEach((record) => {
+      const group = groups.get(record.session_id) ?? [];
+      group.push(record);
+      groups.set(record.session_id, group);
+    });
+
+    return Array.from(groups.entries())
+      .map(([reviewSessionId, sessionRecords]) => {
+        const orderedRecords = [...sessionRecords].sort((a, b) => a.id - b.id);
+        const latest = sessionRecords.reduce((currentLatest, record) =>
+          new Date(record.answeredAt).getTime() > new Date(currentLatest.answeredAt).getTime() ? record : currentLatest
+        );
+        const first = orderedRecords[0];
+        const correct = orderedRecords.filter((record) => record.correct).length;
+        const total = orderedRecords.length;
+        const accuracy = total === 0 ? 0 : Math.round((correct / total) * 100);
+        const title = reviewSessionId.startsWith("day1-")
+          ? "Day 1 今日任务"
+          : `${modeLabels[first.mode]}${first.difficulty ? ` · ${difficultyLabels[first.difficulty]}` : ""}`;
+
+        return {
+          id: reviewSessionId,
+          title,
+          subtitle: `${total} 题 · 答对 ${correct} 题 · ${accuracy}%`,
+          answeredAt: latest.answeredAt,
+          records: orderedRecords
+        };
+      })
+      .sort((a, b) => new Date(b.answeredAt).getTime() - new Date(a.answeredAt).getTime());
+  }, [savedRecords]);
+
   async function refreshUserData(nextUsername = username) {
     if (!nextUsername) return;
-    const [recordsResponse, summaryResponse] = await Promise.all([
-      fetch(`/api/users/${encodeURIComponent(nextUsername)}/records?limit=200`),
-      fetch(`/api/users/${encodeURIComponent(nextUsername)}/summary`)
-    ]);
+    const recordsResponse = await fetch(`/api/users/${encodeURIComponent(nextUsername)}/records?limit=500`);
     if (recordsResponse.ok) {
       const data = (await recordsResponse.json()) as ReviewResponse;
       setSavedRecords(data.records);
-    }
-    if (summaryResponse.ok) {
-      const data = (await summaryResponse.json()) as SummaryResponse;
-      setSummary(data.summary);
     }
   }
 
@@ -262,6 +288,7 @@ export default function App() {
     setUsername("");
     setLoginName("");
     setActiveSection("overview");
+    setActiveTaskId(undefined);
     localStorage.removeItem(USERNAME_KEY);
     localStorage.removeItem(QUIZ_STATE_KEY);
   }
@@ -274,7 +301,16 @@ export default function App() {
     if (section === "review") void refreshUserData();
   }
 
-  function startQuiz(nextMode: QuizMode, options?: { difficulty?: SpellingDifficulty; count?: number; section?: AppSection }) {
+  function startQuiz(
+    nextMode: QuizMode,
+    options?: {
+      difficulty?: SpellingDifficulty;
+      count?: number;
+      section?: AppSection;
+      sessionId?: string;
+      taskId?: string;
+    }
+  ) {
     const nextDifficulty = options?.difficulty ?? spellingDifficulty;
     const nextCount = Math.min(options?.count ?? questionCount, allWords.length);
     const nextSection = options?.section ?? (nextMode === "spelling" ? "spelling" : "wordbook");
@@ -288,7 +324,29 @@ export default function App() {
     setTyped("");
     setFeedback("idle");
     setRecords([]);
-    setSessionId(createSessionId());
+    setSessionId(options?.sessionId ?? createSessionId());
+    setActiveTaskId(options?.taskId);
+  }
+
+  function startDay1() {
+    if (day1InProgress) {
+      setActiveSection("spelling");
+      setMode("spelling");
+      setSpellingDifficulty("medium");
+      setQuestionCount(100);
+      setSelected("");
+      setTyped("");
+      setFeedback("idle");
+      return;
+    }
+
+    startQuiz("spelling", {
+      difficulty: "medium",
+      count: 100,
+      section: "spelling",
+      sessionId: `day1-${createSessionId()}`,
+      taskId: "day1"
+    });
   }
 
   function restart() {
@@ -341,6 +399,7 @@ export default function App() {
     setQueue([]);
     setIndex(0);
     setRecords([]);
+    setActiveTaskId(undefined);
     localStorage.removeItem(QUIZ_STATE_KEY);
     openSection("overview");
   }
@@ -351,7 +410,7 @@ export default function App() {
         <form className="login-panel" onSubmit={login}>
           <ListChecks aria-hidden="true" />
           <h1>七年级英语词汇摸底</h1>
-          <p>输入一个用户名即可开始，后续答题记录会按这个名字保存。</p>
+          <p>写上你的名字，就可以开始练单词啦。</p>
           <input
             autoFocus
             maxLength={60}
@@ -426,22 +485,7 @@ export default function App() {
           ))}
         </div>
 
-        <div className="stats">
-          <div>
-            <strong>{summary?.totalAnswers ?? attemptedCount}</strong>
-            <span>累计已答</span>
-          </div>
-          <div>
-            <strong>{summary?.accuracy ?? accuracy}%</strong>
-            <span>总正确率</span>
-          </div>
-          <div>
-            <strong>{summary?.checkInDays ?? 0}</strong>
-            <span>打卡天数</span>
-          </div>
-        </div>
-
-        {queue.length > 0 && (
+        {showQuizProgress && (
           <>
             <div className="progress-track" aria-label={`进度 ${progress}%`}>
               <div style={{ width: `${progress}%` }} />
@@ -465,29 +509,12 @@ export default function App() {
               <div>
                 <span className="task-day">Day 1</span>
                 <h3>中等难度拼写自测</h3>
-                <p>100 个高频词，只显示中文，完成后记录会进入 Review。</p>
+                <p>{day1ProgressText}</p>
               </div>
-              <button
-                className="primary-button"
-                onClick={() => startQuiz("spelling", { difficulty: "medium", count: 100, section: "spelling" })}
-              >
+              <button className="primary-button" onClick={startDay1}>
                 <Play aria-hidden="true" />
-                开始 Day 1
+                {day1InProgress ? "继续 Day 1" : "开始 Day 1"}
               </button>
-            </div>
-            <div className="overview-grid">
-              <div>
-                <strong>{allWords.length}</strong>
-                <span>高频词</span>
-              </div>
-              <div>
-                <strong>{summary?.totalAnswers ?? 0}</strong>
-                <span>历史答题</span>
-              </div>
-              <div>
-                <strong>{summary?.correctAnswers ?? 0}</strong>
-                <span>历史答对</span>
-              </div>
             </div>
           </section>
         )}
@@ -566,17 +593,33 @@ export default function App() {
             </button>
             <div className="review-list">
               {savedRecords.length === 0 && <p>还没有答题记录。</p>}
-              {savedRecords.map((record) => (
-                <div className={record.correct ? "review-row right" : "review-row wrong"} key={record.id}>
-                  <div>
-                    <strong>{record.english}</strong>
-                    <span>{record.chinese}</span>
+              {reviewSessions.map((reviewSession, sessionIndex) => (
+                <details className="review-session" key={reviewSession.id} open={sessionIndex === 0}>
+                  <summary>
+                    <div>
+                      <strong>{reviewSession.title}</strong>
+                      <span>{new Date(reviewSession.answeredAt).toLocaleString()}</span>
+                    </div>
+                    <div>
+                      <strong>{reviewSession.subtitle}</strong>
+                      <span>点开看本轮详情</span>
+                    </div>
+                  </summary>
+                  <div className="session-records">
+                    {reviewSession.records.map((record) => (
+                      <div className={record.correct ? "review-row right" : "review-row wrong"} key={record.id}>
+                        <div>
+                          <strong>{record.english}</strong>
+                          <span>{record.chinese}</span>
+                        </div>
+                        <div>
+                          <span>{record.userAnswer}</span>
+                          <small>{record.correct ? "答对了" : "需要再记一下"}</small>
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                  <div>
-                    <span>{record.userAnswer}</span>
-                    <small>{new Date(record.answeredAt).toLocaleString()}</small>
-                  </div>
-                </div>
+                </details>
               ))}
             </div>
           </section>
