@@ -508,7 +508,7 @@ export default function App() {
       .catch((caught) => {
         setReadingError(caught instanceof Error ? caught.message : "阅读文章没有加载成功");
       });
-  }, [readingPassageSlug]);
+  }, [activeTaskId, readingPassageSlug]);
 
   useEffect(() => {
     if (activeSection !== "peppa" || peppaEpisodes.length > 0) return;
@@ -875,7 +875,7 @@ export default function App() {
     setActiveTaskId(task.id);
     setActiveDayId(returnSection === "peppa" ? undefined : task.id.startsWith("day2-") ? "day2" : activeDayId);
     setReadingPassageSlug(task.passageSlug);
-    setReadingPassage(null);
+    setReadingPassage((currentPassage) => (currentPassage?.slug === task.passageSlug ? currentPassage : null));
     setReadingError("");
     const latestSubmission = readingSubmissions.find((submission) => submission.taskId === task.id);
     setReadingSubmitted(Boolean(latestSubmission));
