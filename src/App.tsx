@@ -512,6 +512,13 @@ export default function App() {
   const day1ProgressText = day1InProgress ? `已做 ${Math.min(index, queue.length)} / ${queue.length} 题` : "1 个小任务 · 100 题";
   const showQuizProgress = queue.length > 0 && activeSection !== "overview" && activeSection !== "review";
   const showTaskSection = activeSection === "overview" || (activeSection === "spelling" && queue.length === 0);
+
+  useEffect(() => {
+    if (activeSection === "taskDetail" && isDailyTaskLocked(activeDailyTask)) {
+      setActiveSection("overview");
+    }
+  }, [activeDailyTask, activeSection, now]);
+
   const peppaEpisodeTasks = useMemo(
     () =>
       peppaEpisodes.map(
@@ -1278,9 +1285,9 @@ export default function App() {
                 <div className={locked ? "task-card locked" : "task-card"} key={task.id}>
                   <div>
                     <span className="task-day">{task.label}</span>
-                    <h3>{task.title}</h3>
+                    <h3>{locked ? "任务未开放" : task.title}</h3>
                     <p>{task.id === "day1" ? day1ProgressText : getDailyTaskProgressText(task)}</p>
-                    <p>{task.description}</p>
+                    <p>{locked ? "到时间以后再来看今天要做什么。" : task.description}</p>
                   </div>
                   <button className="primary-button" disabled={unavailable} onClick={() => openDailyTask(task)}>
                     <Play aria-hidden="true" />
