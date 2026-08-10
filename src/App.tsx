@@ -1016,7 +1016,7 @@ export default function App() {
               <span>
                 第 {index + 1} / {queue.length} 题
               </span>
-              <span>高频词</span>
+              <span>{current.origin?.label || "高频词"}</span>
             </div>
 
             {mode === "choice" && (

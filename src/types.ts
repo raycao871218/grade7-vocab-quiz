@@ -3,7 +3,15 @@ export type VocabItem = {
   english: string;
   chinese: string;
   bonus: boolean;
+  origin?: VocabOrigin;
   examples?: VocabExample[];
+};
+
+export type VocabOrigin = {
+  semester: string;
+  page: string;
+  sourceListSlug: string;
+  label: string;
 };
 
 export type QuizMode = "choice" | "typing" | "spelling";

@@ -9,6 +9,42 @@ from .config import get_database_kwargs
 pool = ConnectionPool(kwargs=get_database_kwargs(), min_size=1, max_size=5, open=False)
 
 
+def decode_db_text(value: str | bytes | memoryview | None) -> str:
+    if value is None:
+        return ""
+    if isinstance(value, memoryview):
+        value = value.tobytes()
+    if isinstance(value, bytes):
+        return value.decode("utf-8")
+    return value
+
+
+def parse_vocab_origin(
+    notes: str | bytes | memoryview | None,
+    fallback_semester: str | bytes | memoryview | None = None,
+) -> dict[str, str]:
+    notes_text = decode_db_text(notes)
+    fallback_semester_text = decode_db_text(fallback_semester)
+    parts: dict[str, str] = {}
+    for raw_part in notes_text.split(";"):
+        key, separator, value = raw_part.strip().partition(":")
+        if separator:
+            parts[key.strip()] = value.strip()
+
+    semester = parts.get("semester") or fallback_semester_text
+    page = parts.get("page", "")
+    source_slug = parts.get("source", "")
+    semester_label = {"上学期": "七上", "下学期": "七下", "全年": "全年"}.get(semester, semester)
+    origin_label = " · ".join(part for part in [semester_label, f"p.{page}" if page else ""] if part)
+
+    return {
+        "semester": semester,
+        "page": page,
+        "sourceListSlug": source_slug,
+        "label": origin_label,
+    }
+
+
 def open_pool() -> None:
     pool.open(wait=True)
 
@@ -24,6 +60,8 @@ def fetch_vocab_words(list_slug: str) -> list[dict[str, Any]]:
         w.english,
         m.meaning AS chinese,
         i.is_bonus AS bonus,
+        i.notes,
+        l.semester,
         COALESCE(
           jsonb_agg(
             jsonb_build_object(
@@ -47,7 +85,7 @@ def fetch_vocab_words(list_slug: str) -> list[dict[str, Any]]:
         ON e.word_id = w.id
        AND e.difficulty = 'hard'
       WHERE l.slug = %s
-      GROUP BY i.display_order, w.english, m.meaning, i.is_bonus
+      GROUP BY i.display_order, w.english, m.meaning, i.is_bonus, i.notes, l.semester
       ORDER BY i.display_order
     """
 
@@ -62,6 +100,7 @@ def fetch_vocab_words(list_slug: str) -> list[dict[str, Any]]:
             "english": row["english"],
             "chinese": row["chinese"] or "",
             "bonus": row["bonus"],
+            "origin": parse_vocab_origin(row["notes"] or "", row["semester"]),
             "examples": row["examples"],
         }
         for row in rows
