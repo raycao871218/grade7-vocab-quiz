@@ -127,18 +127,18 @@ INSERT INTO reading_passages (slug, title, source, body, notes)
 VALUES (
   'north-wind-sun-original',
   'The North Wind & the Sun',
-  'Library of Congress Aesop Fables',
-  $$The North Wind and the Sun had a quarrel about which of them was the stronger. While they were disputing with much heat and bluster, a Traveler passed along the road wrapped in a cloak.
+  '你提供的版本',
+  $$The North Wind and the Sun were having a quarrel. Each said, "I am stronger than the other."
 
-"Let us agree," said the Sun, "that he is the stronger who can strip that Traveler of his cloak."
+Just then, they saw a traveler walking along the road. He was wearing a warm cloak.
 
-"Very well," growled the North Wind, and at once sent a cold, howling blast against the Traveler.
+"Let us agree," said the Sun, "that he is the stronger who can make the traveler take off his cloak."
 
-With the first gust of wind the ends of the cloak whipped about the Traveler's body. But he immediately wrapped it closely around him, and the harder the Wind blew, the tighter he held it to him. The North Wind tore angrily at the cloak, but all his efforts were in vain.
+The North Wind went first. He blew with all his might, but the harder he blew, the tighter the traveler wrapped his cloak around him. At last, the North Wind gave up.
 
-Then the Sun began to shine. At first his beams were gentle, and in the pleasant warmth after the bitter cold of the North Wind, the Traveler unfastened his cloak and let it hang loosely from his shoulders. The Sun's rays grew warmer and warmer. The man took off his cap and mopped his brow. At last he became so heated that he pulled off his cloak, and, to escape the blazing sunshine, threw himself down in the welcome shade of a tree by the roadside.
+Then the Sun shone warmly. Soon the traveler felt hot and took off his cloak.
 
-Gentleness and kind persuasion win where force and bluster fail.$$,
+"You are right," said the North Wind. "Gentleness is stronger than force."$$,
   ''
 )
 ON CONFLICT (slug) DO UPDATE
