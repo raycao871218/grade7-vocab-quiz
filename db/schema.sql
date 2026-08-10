@@ -151,7 +151,19 @@ The North Wind went first. He blew with all his might, but the harder he blew, t
 Then the Sun shone warmly. Soon the traveler felt hot and took off his cloak.
 
 "You are right," said the North Wind. "Gentleness is stronger than force."$$,
-  ''
+  $$quarrel 争吵
+traveler 旅行者；行人
+cloak 斗篷；披风
+agree 同意；约定
+take off 脱下
+blew blow 的过去式，吹
+with all his might 用尽全力
+tighter 更紧地
+wrapped wrap 的过去式，裹住；包住
+gave up give up 的过去式，放弃
+shone shine 的过去式，照耀
+gentleness 温和；温柔
+force 力量；武力$$
 )
 ON CONFLICT (slug) DO UPDATE
   SET title = EXCLUDED.title,

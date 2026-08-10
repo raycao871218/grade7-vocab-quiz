@@ -1417,7 +1417,7 @@ export default function App() {
                   ))}
                   {readingPassage.notes && (
                     <div className="reading-notes">
-                      <h4>重点词组</h4>
+                      <h4>难词提示</h4>
                       {readingPassage.notes.split("\n").map((line) => (
                         <p key={line}>{line}</p>
                       ))}
