@@ -19,6 +19,20 @@ def decode_db_text(value: str | bytes | memoryview | None) -> str:
     return value
 
 
+def parse_vocab_english(value: str | bytes | memoryview | None) -> tuple[str, str]:
+    text = decode_db_text(value).strip()
+    if " /" not in text:
+        return text, ""
+
+    word, raw_phonetic = text.rsplit(" /", 1)
+    phonetic = raw_phonetic.strip()
+    phonetic_body = phonetic[:-1].strip() if phonetic.endswith("/") else phonetic
+    if not word.strip() or not phonetic_body or " " in phonetic_body or len(phonetic_body) > 40:
+        return text, ""
+
+    return word.strip(), f"/{phonetic_body}/"
+
+
 def parse_vocab_origin(
     notes: str | bytes | memoryview | None,
     fallback_semester: str | bytes | memoryview | None = None,
@@ -94,17 +108,19 @@ def fetch_vocab_words(list_slug: str) -> list[dict[str, Any]]:
             cursor.execute(query, (list_slug,))
             rows = cursor.fetchall()
 
-    return [
-        {
+    parsed_rows = []
+    for row in rows:
+        english, phonetic = parse_vocab_english(row["english"])
+        parsed_rows.append({
             "id": row["id"],
-            "english": row["english"],
+            "english": english,
+            "phonetic": phonetic,
             "chinese": row["chinese"] or "",
             "bonus": row["bonus"],
             "origin": parse_vocab_origin(row["notes"] or "", row["semester"]),
             "examples": row["examples"],
-        }
-        for row in rows
-    ]
+        })
+    return parsed_rows
 
 
 def normalize_username(username: str) -> str:

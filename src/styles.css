@@ -779,6 +779,19 @@ p {
   line-height: 1;
 }
 
+.prompt-word span,
+.word-phonetic {
+  display: block;
+}
+
+.word-phonetic {
+  margin-top: 8px;
+  color: #667367;
+  font-size: clamp(1rem, 4.5vw, 1.45rem);
+  font-weight: 800;
+  line-height: 1.2;
+}
+
 .prompt-word.chinese {
   font-size: clamp(1.65rem, 8vw, 3rem);
   line-height: 1.2;

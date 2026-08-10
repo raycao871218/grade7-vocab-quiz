@@ -277,8 +277,12 @@ function makeClozeSentence(item: VocabItem): string {
   return primaryExample?.blankedSentence ?? "Read the sentence and write the missing word.";
 }
 
+function formatEnglishPrompt(item: VocabItem): string {
+  return item.phonetic ? `${item.english} ${item.phonetic}` : item.english;
+}
+
 function makePrompt(mode: QuizMode, difficulty: SpellingDifficulty, item: VocabItem): string {
-  if (mode === "choice") return item.english;
+  if (mode === "choice") return formatEnglishPrompt(item);
   if (mode === "typing") return item.chinese;
   if (difficulty === "hard") return makeClozeSentence(item);
   if (difficulty === "easy") return `${item.chinese} / ${makeMask(item.english)}`;
@@ -1603,7 +1607,10 @@ export default function App() {
             {mode === "choice" && (
               <>
                 <p className="prompt-label">请选择中文意思</p>
-                <h2 className="prompt-word">{current.english}</h2>
+                <h2 className="prompt-word">
+                  <span>{current.english}</span>
+                  {current.phonetic && <small className="word-phonetic">{current.phonetic}</small>}
+                </h2>
                 <div className="choice-grid">
                   {choices.map((choice) => (
                     <button

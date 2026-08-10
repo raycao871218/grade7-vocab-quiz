@@ -1,6 +1,7 @@
 export type VocabItem = {
   id: number;
   english: string;
+  phonetic?: string;
   chinese: string;
   bonus: boolean;
   origin?: VocabOrigin;
