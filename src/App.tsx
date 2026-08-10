@@ -87,6 +87,9 @@ const navSections: AppSection[] = ["overview", "wordbook", "review"];
 const validSections: AppSection[] = ["overview", "taskDetail", "wordbook", "spelling", "reading", "review"];
 const READING_STATE_KEY = "grade7-vocab-reading-state";
 const ACTIVE_READING_TASK_KEY = "grade7-vocab-active-reading-task";
+const DAY2_CHOICE_COUNT = 30;
+const DAY2_REVIEW_WORD_COUNT = 21;
+const DAY2_NEW_WORD_COUNT = 9;
 type TaskItemType = "quiz" | "script-reading" | "translation";
 
 type DailyTaskItem = {
@@ -162,10 +165,10 @@ const dailyTasks: DailyTask[] = [
         type: "quiz",
         label: "第三项",
         title: "英译中选择题 30 个",
-        description: "从昨天答过的单词里抽题，复习刚见过的词。",
+        description: "21 个昨天词加 9 个新词，复习刚见过的词，也顺手扩一点新词。",
         mode: "choice",
         difficulty: "medium",
-        count: 30,
+        count: DAY2_CHOICE_COUNT,
         sessionPrefix: "day2-yesterday-choice-",
         source: "yesterdayAnswers"
       }
@@ -440,6 +443,22 @@ export default function App() {
         return true;
       });
   }, [allWords, savedRecords, yesterdayDateKey]);
+  const day2ChoiceWords = useMemo(() => {
+    const yesterdayIds = new Set(yesterdayAnsweredWords.map((item) => item.id));
+    const reviewWords = shuffleArray(yesterdayAnsweredWords).slice(0, DAY2_REVIEW_WORD_COUNT);
+    const newWords = shuffleArray(allWords.filter((item) => !yesterdayIds.has(item.id))).slice(0, DAY2_NEW_WORD_COUNT);
+    const fallbackWords =
+      reviewWords.length + newWords.length >= DAY2_CHOICE_COUNT
+        ? []
+        : shuffleArray(allWords.filter((item) => !reviewWords.some((reviewWord) => reviewWord.id === item.id) && !newWords.some((newWord) => newWord.id === item.id))).slice(
+            0,
+            DAY2_CHOICE_COUNT - reviewWords.length - newWords.length
+          );
+
+    return uniqueWords([...reviewWords, ...newWords, ...fallbackWords]).slice(0, DAY2_CHOICE_COUNT);
+  }, [allWords, yesterdayAnsweredWords]);
+  const day2ReviewWordCount = day2ChoiceWords.filter((item) => yesterdayAnsweredWords.some((word) => word.id === item.id)).length;
+  const day2NewWordCount = day2ChoiceWords.length - day2ReviewWordCount;
   const wordbookCountOptions = useMemo(() => {
     const options = [10, 20, 30, 50, 100, allWords.length].filter((count) => count > 0 && count <= allWords.length);
     return [...new Set(options)].sort((a, b) => a - b);
@@ -664,8 +683,8 @@ export default function App() {
         return `已完成 · 答对 ${correct} / ${recordsForTask.length} · ${new Date(latest.answeredAt).toLocaleString()}`;
       }
       if (task.source === "yesterdayAnswers") {
-        return yesterdayAnsweredWords.length > 0
-          ? `${task.description} 昨天可选 ${yesterdayAnsweredWords.length} 个。`
+        return day2ChoiceWords.length > 0
+          ? `${task.description} 本轮会抽 ${day2ReviewWordCount} 个昨天词、${day2NewWordCount} 个新词。昨天可选 ${yesterdayAnsweredWords.length} 个。`
           : `昨天还没有可用答题词。`;
       }
       return task.description;
@@ -759,22 +778,22 @@ export default function App() {
       setActiveDayId("day2");
       setMode("choice");
       setSpellingDifficulty("medium");
-      setQuestionCount(Math.min(30, queue.length || yesterdayAnsweredWords.length));
+      setQuestionCount(Math.min(DAY2_CHOICE_COUNT, queue.length || day2ChoiceWords.length));
       setSelected("");
       setTyped("");
       setFeedback("idle");
       return;
     }
 
-    if (yesterdayAnsweredWords.length === 0) return;
+    if (day2ChoiceWords.length === 0) return;
     startQuiz("choice", {
       difficulty: "medium",
-      count: 30,
+      count: DAY2_CHOICE_COUNT,
       section: "taskDetail",
       sessionId: `day2-yesterday-choice-${createSessionId()}`,
       taskId: "day2-yesterday-choice",
       dayId: "day2",
-      sourceWords: yesterdayAnsweredWords
+      sourceWords: day2ChoiceWords
     });
   }
 
@@ -1077,7 +1096,7 @@ export default function App() {
             <div className="task-item-list">
               {activeDailyTask.items.map((task) => {
                 const complete = isTaskItemComplete(task);
-                const disabled = task.id === "day2-yesterday-choice" && yesterdayAnsweredWords.length === 0 && !day2QuizInProgress;
+                const disabled = task.id === "day2-yesterday-choice" && day2ChoiceWords.length === 0 && !day2QuizInProgress;
                 return (
                   <div className={complete ? "task-item-card complete" : "task-item-card"} key={task.id}>
                     <div className="task-item-main">
