@@ -369,6 +369,15 @@ p {
   line-height: 1.5;
 }
 
+.task-card.locked {
+  background: #f6f2ea;
+}
+
+.task-card.locked h3,
+.task-card.locked p {
+  color: #82786b;
+}
+
 .task-detail-dashboard {
   width: min(820px, 100%);
 }

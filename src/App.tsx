@@ -118,6 +118,7 @@ type DailyTask = {
   label: string;
   title: string;
   description: string;
+  unlockAt?: string;
   items: DailyTaskItem[];
 };
 
@@ -179,6 +180,14 @@ const dailyTasks: DailyTask[] = [
         source: "yesterdayAnswers"
       }
     ]
+  },
+  {
+    id: "day3",
+    label: "Day 3",
+    title: "任务待录入",
+    description: "明天早上 6 点开放，内容可以先放这里。",
+    unlockAt: "2026-08-11T06:00:00+08:00",
+    items: []
   }
 ] as const satisfies DailyTask[];
 
@@ -290,6 +299,16 @@ function getYesterdayDateKey(): string {
   return toLocalDateKey(yesterday);
 }
 
+function formatUnlockTime(unlockAt: string): string {
+  return new Date(unlockAt).toLocaleString("zh-CN", {
+    month: "numeric",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false
+  });
+}
+
 function formatAnswerDuration(durationMs: number | null): string {
   if (durationMs === null) return "未记录用时";
   if (durationMs < 1000) return "用时不到 1 秒";
@@ -334,6 +353,7 @@ export default function App() {
   const [translationText, setTranslationText] = useState("");
   const [readingSubmissions, setReadingSubmissions] = useState<ReadingSubmission[]>([]);
   const [readingSubmitted, setReadingSubmitted] = useState(false);
+  const [now, setNow] = useState(() => Date.now());
   const questionStartedAt = useRef<number | null>(null);
   const readingStartedAt = useRef<number | null>(null);
 
@@ -382,6 +402,11 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem(SECTION_KEY, activeSection);
   }, [activeSection]);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 30_000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     if (!username) {
@@ -701,11 +726,17 @@ export default function App() {
     return readingSubmissions.some((item) => item.taskId === task.id);
   }
 
+  function isDailyTaskLocked(task: DailyTask): boolean {
+    return Boolean(task.unlockAt && now < new Date(task.unlockAt).getTime());
+  }
+
   function isDailyTaskComplete(task: DailyTask): boolean {
-    return task.items.every((item) => isTaskItemComplete(item));
+    return task.items.length > 0 && task.items.every((item) => isTaskItemComplete(item));
   }
 
   function getDailyTaskProgressText(task: DailyTask): string {
+    if (isDailyTaskLocked(task) && task.unlockAt) return `${formatUnlockTime(task.unlockAt)} 开放`;
+    if (task.items.length === 0) return "任务内容待录入";
     const completed = task.items.filter((item) => isTaskItemComplete(item)).length;
     return `${completed} / ${task.items.length} 项完成`;
   }
@@ -752,6 +783,7 @@ export default function App() {
   }
 
   function openDailyTask(task: DailyTask) {
+    if (isDailyTaskLocked(task) || task.items.length === 0) return;
     setActiveSection("taskDetail");
     setActiveDayId(task.id);
     setQueue([]);
@@ -1125,20 +1157,24 @@ export default function App() {
               <p className="prompt-label">任务</p>
               <h2>今日任务</h2>
             </div>
-            {dailyTasks.map((task) => (
-              <div className="task-card" key={task.id}>
-                <div>
-                  <span className="task-day">{task.label}</span>
-                  <h3>{task.title}</h3>
-                  <p>{task.id === "day1" ? day1ProgressText : getDailyTaskProgressText(task)}</p>
-                  <p>{task.description}</p>
+            {dailyTasks.map((task) => {
+              const locked = isDailyTaskLocked(task);
+              const unavailable = locked || task.items.length === 0;
+              return (
+                <div className={locked ? "task-card locked" : "task-card"} key={task.id}>
+                  <div>
+                    <span className="task-day">{task.label}</span>
+                    <h3>{task.title}</h3>
+                    <p>{task.id === "day1" ? day1ProgressText : getDailyTaskProgressText(task)}</p>
+                    <p>{task.description}</p>
+                  </div>
+                  <button className="primary-button" disabled={unavailable} onClick={() => openDailyTask(task)}>
+                    <Play aria-hidden="true" />
+                    {locked ? "未开放" : task.items.length === 0 ? "待录入" : isDailyTaskComplete(task) ? "查看任务" : "进入任务"}
+                  </button>
                 </div>
-                <button className="primary-button" onClick={() => openDailyTask(task)}>
-                  <Play aria-hidden="true" />
-                  {isDailyTaskComplete(task) ? "查看任务" : "进入任务"}
-                </button>
-              </div>
-            ))}
+              );
+            })}
           </section>
         )}
 
