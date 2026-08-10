@@ -13,6 +13,7 @@ from .db import (
     close_pool,
     fetch_answer_records,
     fetch_reading_passage,
+    fetch_reading_passage_summaries,
     fetch_reading_submissions,
     fetch_user_summary,
     fetch_vocab_words,
@@ -113,6 +114,11 @@ def get_reading_passage(slug: str) -> dict[str, Any]:
     if not passage:
         raise HTTPException(status_code=404, detail=f"没有找到阅读文章：{slug}")
     return {"passage": passage}
+
+
+@app.get("/api/reading-passages")
+def get_reading_passages(collection: str | None = None) -> dict[str, Any]:
+    return {"passages": fetch_reading_passage_summaries(collection)}
 
 
 @app.post("/api/answers")

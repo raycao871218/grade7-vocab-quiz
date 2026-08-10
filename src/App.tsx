@@ -20,6 +20,7 @@ import type {
   AppSection,
   QuizMode,
   ReadingPassage,
+  ReadingPassageSummary,
   ReadingSubmission,
   SavedAnswerRecord,
   SpellingDifficulty,
@@ -38,6 +39,10 @@ type ReviewResponse = {
 
 type ReadingPassageResponse = {
   passage: ReadingPassage;
+};
+
+type ReadingPassagesResponse = {
+  passages: ReadingPassageSummary[];
 };
 
 type ReadingSubmissionsResponse = {
@@ -181,16 +186,7 @@ type ReadingTask = DailyTaskItem & { passageSlug: string; responseMode: "complet
 const readingTasks = dailyTasks.flatMap((task) =>
   task.items.filter((item): item is ReadingTask => Boolean(item.passageSlug && item.responseMode))
 );
-const peppaReadingModule: ReadingTask = {
-  id: "peppa-muddy-puddles",
-  type: "script-reading",
-  label: "小猪佩奇",
-  title: "Muddy Puddles",
-  description: "读小猪佩奇第一集剧本，重点看句子里的常用表达。",
-  passageSlug: "peppa-pig-muddy-puddles",
-  responseMode: "complete"
-};
-const allReadingTasks = [...readingTasks, peppaReadingModule];
+const PEPPA_TASK_PREFIX = "peppa-episode-";
 
 function shuffleArray<T>(items: T[]): T[] {
   return [...items].sort(() => Math.random() - 0.5);
@@ -277,7 +273,7 @@ function findDailyTask(dayId: string | undefined): DailyTask | undefined {
 }
 
 function findReadingTask(taskId: string | undefined): ReadingTask | undefined {
-  return allReadingTasks.find((task) => task.id === taskId);
+  return readingTasks.find((task) => task.id === taskId);
 }
 
 function toLocalDateKey(value: string | Date): string {
@@ -333,6 +329,8 @@ export default function App() {
   const [readingPassageSlug, setReadingPassageSlug] = useState("");
   const [readingPassage, setReadingPassage] = useState<ReadingPassage | null>(null);
   const [readingError, setReadingError] = useState("");
+  const [peppaEpisodes, setPeppaEpisodes] = useState<ReadingPassageSummary[]>([]);
+  const [peppaError, setPeppaError] = useState("");
   const [translationText, setTranslationText] = useState("");
   const [readingSubmissions, setReadingSubmissions] = useState<ReadingSubmission[]>([]);
   const [readingSubmitted, setReadingSubmitted] = useState(false);
@@ -436,8 +434,23 @@ export default function App() {
   const day1ProgressText = day1InProgress ? `已做 ${Math.min(index, queue.length)} / ${queue.length} 题` : "1 个小任务 · 100 题";
   const showQuizProgress = queue.length > 0 && activeSection !== "overview" && activeSection !== "review";
   const showTaskSection = activeSection === "overview" || (activeSection === "spelling" && queue.length === 0);
-  const activeReadingTask = findReadingTask(activeTaskId);
-  const isPeppaModuleActive = activeTaskId === peppaReadingModule.id;
+  const peppaEpisodeTasks = useMemo(
+    () =>
+      peppaEpisodes.map(
+        (episode, episodeIndex): ReadingTask => ({
+          id: `${PEPPA_TASK_PREFIX}${episode.slug}`,
+          type: "script-reading",
+          label: `第 ${episodeIndex + 1} 集`,
+          title: episode.title,
+          description: "读剧本，重点看句子里的常用表达。",
+          passageSlug: episode.slug,
+          responseMode: "complete"
+        })
+      ),
+    [peppaEpisodes]
+  );
+  const activeReadingTask = findReadingTask(activeTaskId) ?? peppaEpisodeTasks.find((task) => task.id === activeTaskId);
+  const isPeppaModuleActive = Boolean(activeTaskId?.startsWith(PEPPA_TASK_PREFIX));
   const activeReadingSubmission = activeReadingTask
     ? readingSubmissions.find((submission) => submission.taskId === activeReadingTask.id)
     : undefined;
@@ -476,8 +489,8 @@ export default function App() {
     return [...new Set(options)].sort((a, b) => a - b);
   }, [allWords.length]);
   const activeWordbookQuestionCount = Math.min(wordbookQuestionCount, allWords.length);
-  const readingReturnSection: AppSection = isPeppaModuleActive ? "overview" : "taskDetail";
-  const readingReturnLabel = isPeppaModuleActive ? "返回任务" : "返回任务详情";
+  const readingReturnSection: AppSection = isPeppaModuleActive ? "peppa" : "taskDetail";
+  const readingReturnLabel = isPeppaModuleActive ? "返回剧集" : "返回任务详情";
 
   useEffect(() => {
     questionStartedAt.current = current ? performance.now() : null;
@@ -498,6 +511,20 @@ export default function App() {
   }, [readingPassageSlug]);
 
   useEffect(() => {
+    if (activeSection !== "peppa" || peppaEpisodes.length > 0) return;
+    setPeppaError("");
+    fetch("/api/reading-passages?collection=peppa")
+      .then(async (response) => {
+        const data = (await response.json()) as ReadingPassagesResponse;
+        if (!response.ok) throw new Error("小猪佩奇剧集没有加载成功");
+        setPeppaEpisodes(data.passages);
+      })
+      .catch((caught) => {
+        setPeppaError(caught instanceof Error ? caught.message : "小猪佩奇剧集没有加载成功");
+      });
+  }, [activeSection, peppaEpisodes.length]);
+
+  useEffect(() => {
     if (!username || activeSection !== "reading" || activeReadingTask?.responseMode !== "translation") return;
     localStorage.setItem(getReadingStateKey(username, activeReadingTask.id), translationText);
   }, [activeReadingTask, activeSection, translationText, username]);
@@ -505,7 +532,8 @@ export default function App() {
   useEffect(() => {
     if (!username || activeSection !== "reading") return;
     const savedTaskId = localStorage.getItem(getActiveReadingTaskKey(username));
-    const task = findReadingTask(activeTaskId) ?? findReadingTask(savedTaskId ?? undefined) ?? readingTasks[0];
+    const savedPeppaTask = peppaEpisodeTasks.find((item) => item.id === savedTaskId);
+    const task = activeReadingTask ?? findReadingTask(savedTaskId ?? undefined) ?? savedPeppaTask ?? readingTasks[0];
     const latestSubmission = readingSubmissions.find((submission) => submission.taskId === task.id);
 
     setActiveTaskId(task.id);
@@ -516,7 +544,7 @@ export default function App() {
     });
     setReadingSubmitted(Boolean(latestSubmission));
     if (readingStartedAt.current === null) readingStartedAt.current = performance.now();
-  }, [activeSection, activeTaskId, readingSubmissions, username]);
+  }, [activeReadingTask, activeSection, activeTaskId, peppaEpisodeTasks, readingSubmissions, username]);
 
   const choices = useMemo(() => {
     if (!current) return [];
@@ -633,11 +661,8 @@ export default function App() {
       stopQuiz("wordbook");
       return;
     }
-    if (section === "peppa") {
-      startReadingTask(peppaReadingModule, "peppa");
-      return;
-    }
     setActiveSection(section);
+    if (section === "peppa") setActiveDayId(undefined);
     setSelected("");
     setTyped("");
     setFeedback("idle");
@@ -648,7 +673,7 @@ export default function App() {
     return (
       activeSection === section ||
       (section === "overview" && (activeSection === "taskDetail" || activeSection === "spelling" || (activeSection === "reading" && activeDayId))) ||
-      (section === "peppa" && activeSection === "reading" && activeTaskId === peppaReadingModule.id)
+      (section === "peppa" && activeSection === "reading" && isPeppaModuleActive)
     );
   }
 
@@ -828,6 +853,21 @@ export default function App() {
     if (task.passageSlug && task.responseMode) {
       startReadingTask(task as ReadingTask);
     }
+  }
+
+  function startPeppaEpisode(episode: ReadingPassageSummary, episodeIndex: number) {
+    startReadingTask(
+      {
+        id: `${PEPPA_TASK_PREFIX}${episode.slug}`,
+        type: "script-reading",
+        label: `第 ${episodeIndex + 1} 集`,
+        title: episode.title,
+        description: "读剧本，重点看句子里的常用表达。",
+        passageSlug: episode.slug,
+        responseMode: "complete"
+      },
+      "peppa"
+    );
   }
 
   function startReadingTask(task: ReadingTask, returnSection?: AppSection) {
@@ -1144,6 +1184,38 @@ export default function App() {
           </section>
         )}
 
+        {activeSection === "peppa" && (
+          <section className="dashboard peppa-dashboard">
+            <div className="section-heading">
+              <p className="prompt-label">小猪佩奇</p>
+              <h2>剧集列表</h2>
+              <p>选一集进去读剧本。后面你继续录入新剧本，这里会按剧集列出来。</p>
+            </div>
+            {peppaError && <p className="inline-error">{peppaError}</p>}
+            {peppaEpisodes.length === 0 && !peppaError && (
+              <section className="loading-panel">
+                <ListChecks aria-hidden="true" />
+                <h1>正在加载剧集</h1>
+              </section>
+            )}
+            {peppaEpisodes.length > 0 && (
+              <div className="episode-list">
+                {peppaEpisodes.map((episode, episodeIndex) => {
+                  const taskId = `${PEPPA_TASK_PREFIX}${episode.slug}`;
+                  const submission = readingSubmissions.find((item) => item.taskId === taskId);
+                  return (
+                    <button className="episode-card" key={episode.slug} onClick={() => startPeppaEpisode(episode, episodeIndex)}>
+                      <span className="task-day">第 {episodeIndex + 1} 集</span>
+                      <strong>{episode.title}</strong>
+                      <small>{submission ? `已读过 · ${new Date(submission.submittedAt).toLocaleString()}` : "未完成"}</small>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </section>
+        )}
+
         {activeSection === "reading" && (
           <section className="dashboard reading-dashboard">
             <button className="ghost-button light compact-button" onClick={() => setActiveSection(readingReturnSection)}>
@@ -1206,7 +1278,7 @@ export default function App() {
                       {readingSubmitted && <span>已提交，后面可以继续修改再提交。</span>}
                       {readingSubmitted && (
                         <button className="ghost-button light" type="button" onClick={() => setActiveSection(readingReturnSection)}>
-                          {isPeppaModuleActive ? "回到任务" : "回到 Day 2"}
+                          {isPeppaModuleActive ? "回到剧集" : "回到 Day 2"}
                         </button>
                       )}
                     </div>
@@ -1221,7 +1293,7 @@ export default function App() {
                     {activeReadingSubmission && <span>完成时间：{new Date(activeReadingSubmission.submittedAt).toLocaleString()}</span>}
                     {readingSubmitted && (
                       <button className="ghost-button light" onClick={() => setActiveSection(readingReturnSection)}>
-                        {isPeppaModuleActive ? "回到任务" : "回到 Day 2"}
+                        {isPeppaModuleActive ? "回到剧集" : "回到 Day 2"}
                       </button>
                     )}
                   </div>

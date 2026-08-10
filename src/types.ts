@@ -67,6 +67,15 @@ export type ReadingPassage = {
   notes: string;
 };
 
+export type ReadingPassageSummary = {
+  slug: string;
+  title: string;
+  source: string;
+  notes: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type ReadingSubmission = {
   id: number;
   username: string;

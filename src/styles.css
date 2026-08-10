@@ -446,6 +446,42 @@ p {
   padding-top: 16px;
 }
 
+.peppa-dashboard {
+  width: min(820px, 100%);
+}
+
+.episode-list {
+  display: grid;
+  gap: 12px;
+}
+
+.episode-card {
+  display: grid;
+  gap: 8px;
+  width: 100%;
+  border: 1px solid #dfd6c7;
+  border-radius: 8px;
+  padding: 16px;
+  background: #fffdf8;
+  color: #24352c;
+  text-align: left;
+}
+
+.episode-card:hover {
+  border-color: #c75f4a;
+  transform: translateY(-1px);
+}
+
+.episode-card strong {
+  color: #17201a;
+  font-size: 1.2rem;
+}
+
+.episode-card small {
+  color: #667367;
+  font-size: 0.9rem;
+}
+
 .task-card.muted {
   background: #f7f1e8;
 }

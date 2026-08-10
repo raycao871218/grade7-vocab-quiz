@@ -228,7 +228,48 @@ def fetch_reading_passage(slug: str) -> dict[str, Any] | None:
                 (slug,),
             )
             row = cursor.fetchone()
-            return dict(row) if row else None
+            if not row:
+                return None
+            return {
+                "slug": decode_db_text(row["slug"]),
+                "title": decode_db_text(row["title"]),
+                "source": decode_db_text(row["source"]),
+                "body": decode_db_text(row["body"]),
+                "notes": decode_db_text(row["notes"]),
+            }
+
+
+def fetch_reading_passage_summaries(collection: str | None = None) -> list[dict[str, Any]]:
+    conditions = []
+    params: list[Any] = []
+    if collection == "peppa":
+        conditions.append("(slug LIKE %s OR source ILIKE %s)")
+        params.extend(["peppa-%", "%peppa%"])
+
+    where_clause = f"WHERE {' AND '.join(conditions)}" if conditions else ""
+    query = f"""
+      SELECT slug, title, source, notes, created_at AS "createdAt", updated_at AS "updatedAt"
+      FROM reading_passages
+      {where_clause}
+      ORDER BY created_at, id
+    """
+
+    with pool.connection() as conn:
+        with conn.cursor(row_factory=dict_row) as cursor:
+            cursor.execute(query, params)
+            rows = cursor.fetchall()
+
+    return [
+        {
+            "slug": decode_db_text(row["slug"]),
+            "title": decode_db_text(row["title"]),
+            "source": decode_db_text(row["source"]),
+            "notes": decode_db_text(row["notes"]),
+            "createdAt": row["createdAt"],
+            "updatedAt": row["updatedAt"],
+        }
+        for row in rows
+    ]
 
 
 def insert_reading_submission(submission: dict[str, Any]) -> dict[str, Any]:
