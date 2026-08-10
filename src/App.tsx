@@ -65,6 +65,7 @@ const ACTIVE_DAY_KEY = "grade7-vocab-active-day";
 const sectionLabels: Record<AppSection, string> = {
   overview: "任务",
   taskDetail: "任务详情",
+  peppa: "小猪佩奇",
   wordbook: "单词本",
   spelling: "拼写自测",
   reading: "阅读任务",
@@ -83,8 +84,8 @@ const difficultyLabels: Record<SpellingDifficulty, string> = {
   hard: "困难"
 };
 
-const navSections: AppSection[] = ["overview", "wordbook", "review"];
-const validSections: AppSection[] = ["overview", "taskDetail", "wordbook", "spelling", "reading", "review"];
+const navSections: AppSection[] = ["overview", "peppa", "wordbook", "review"];
+const validSections: AppSection[] = ["overview", "taskDetail", "peppa", "wordbook", "spelling", "reading", "review"];
 const READING_STATE_KEY = "grade7-vocab-reading-state";
 const ACTIVE_READING_TASK_KEY = "grade7-vocab-active-reading-task";
 const DAY2_CHOICE_COUNT = 30;
@@ -180,6 +181,16 @@ type ReadingTask = DailyTaskItem & { passageSlug: string; responseMode: "complet
 const readingTasks = dailyTasks.flatMap((task) =>
   task.items.filter((item): item is ReadingTask => Boolean(item.passageSlug && item.responseMode))
 );
+const peppaReadingModule: ReadingTask = {
+  id: "peppa-muddy-puddles",
+  type: "script-reading",
+  label: "小猪佩奇",
+  title: "Muddy Puddles",
+  description: "读小猪佩奇第一集剧本，重点看句子里的常用表达。",
+  passageSlug: "peppa-pig-muddy-puddles",
+  responseMode: "complete"
+};
+const allReadingTasks = [...readingTasks, peppaReadingModule];
 
 function shuffleArray<T>(items: T[]): T[] {
   return [...items].sort(() => Math.random() - 0.5);
@@ -266,7 +277,7 @@ function findDailyTask(dayId: string | undefined): DailyTask | undefined {
 }
 
 function findReadingTask(taskId: string | undefined): ReadingTask | undefined {
-  return readingTasks.find((task) => task.id === taskId);
+  return allReadingTasks.find((task) => task.id === taskId);
 }
 
 function toLocalDateKey(value: string | Date): string {
@@ -426,6 +437,7 @@ export default function App() {
   const showQuizProgress = queue.length > 0 && activeSection !== "overview" && activeSection !== "review";
   const showTaskSection = activeSection === "overview" || (activeSection === "spelling" && queue.length === 0);
   const activeReadingTask = findReadingTask(activeTaskId);
+  const isPeppaModuleActive = activeTaskId === peppaReadingModule.id;
   const activeReadingSubmission = activeReadingTask
     ? readingSubmissions.find((submission) => submission.taskId === activeReadingTask.id)
     : undefined;
@@ -464,6 +476,8 @@ export default function App() {
     return [...new Set(options)].sort((a, b) => a - b);
   }, [allWords.length]);
   const activeWordbookQuestionCount = Math.min(wordbookQuestionCount, allWords.length);
+  const readingReturnSection: AppSection = isPeppaModuleActive ? "overview" : "taskDetail";
+  const readingReturnLabel = isPeppaModuleActive ? "返回任务" : "返回任务详情";
 
   useEffect(() => {
     questionStartedAt.current = current ? performance.now() : null;
@@ -619,6 +633,10 @@ export default function App() {
       stopQuiz("wordbook");
       return;
     }
+    if (section === "peppa") {
+      startReadingTask(peppaReadingModule, "peppa");
+      return;
+    }
     setActiveSection(section);
     setSelected("");
     setTyped("");
@@ -629,7 +647,8 @@ export default function App() {
   function isNavActive(section: AppSection) {
     return (
       activeSection === section ||
-      (section === "overview" && (activeSection === "taskDetail" || activeSection === "spelling" || activeSection === "reading"))
+      (section === "overview" && (activeSection === "taskDetail" || activeSection === "spelling" || (activeSection === "reading" && activeDayId))) ||
+      (section === "peppa" && activeSection === "reading" && activeTaskId === peppaReadingModule.id)
     );
   }
 
@@ -811,10 +830,10 @@ export default function App() {
     }
   }
 
-  function startReadingTask(task: ReadingTask) {
+  function startReadingTask(task: ReadingTask, returnSection?: AppSection) {
     setActiveSection("reading");
     setActiveTaskId(task.id);
-    setActiveDayId(task.id.startsWith("day2-") ? "day2" : activeDayId);
+    setActiveDayId(returnSection === "peppa" ? undefined : task.id.startsWith("day2-") ? "day2" : activeDayId);
     setReadingPassageSlug(task.passageSlug);
     setReadingPassage(null);
     setReadingError("");
@@ -1026,6 +1045,7 @@ export default function App() {
               onClick={() => openSection(section)}
             >
               {section === "overview" && <LayoutDashboard aria-hidden="true" />}
+              {section === "peppa" && <BookOpen aria-hidden="true" />}
               {section === "wordbook" && <BookOpen aria-hidden="true" />}
               {section === "review" && <History aria-hidden="true" />}
               {sectionLabels[section]}
@@ -1126,9 +1146,9 @@ export default function App() {
 
         {activeSection === "reading" && (
           <section className="dashboard reading-dashboard">
-            <button className="ghost-button light compact-button" onClick={() => setActiveSection("taskDetail")}>
+            <button className="ghost-button light compact-button" onClick={() => setActiveSection(readingReturnSection)}>
               <ArrowLeft aria-hidden="true" />
-              返回任务详情
+              {readingReturnLabel}
             </button>
             <div className="section-heading">
               <p className="prompt-label">{activeReadingTask?.label ?? "阅读任务"}</p>
@@ -1185,8 +1205,8 @@ export default function App() {
                       </button>
                       {readingSubmitted && <span>已提交，后面可以继续修改再提交。</span>}
                       {readingSubmitted && (
-                        <button className="ghost-button light" type="button" onClick={() => setActiveSection("taskDetail")}>
-                          回到 Day 2
+                        <button className="ghost-button light" type="button" onClick={() => setActiveSection(readingReturnSection)}>
+                          {isPeppaModuleActive ? "回到任务" : "回到 Day 2"}
                         </button>
                       )}
                     </div>
@@ -1200,8 +1220,8 @@ export default function App() {
                     </button>
                     {activeReadingSubmission && <span>完成时间：{new Date(activeReadingSubmission.submittedAt).toLocaleString()}</span>}
                     {readingSubmitted && (
-                      <button className="ghost-button light" onClick={() => setActiveSection("taskDetail")}>
-                        回到 Day 2
+                      <button className="ghost-button light" onClick={() => setActiveSection(readingReturnSection)}>
+                        {isPeppaModuleActive ? "回到任务" : "回到 Day 2"}
                       </button>
                     )}
                   </div>
