@@ -1,4 +1,5 @@
 import {
+  ArrowLeft,
   BookOpen,
   Check,
   Eye,
@@ -89,14 +90,16 @@ const readingTasks = [
     label: "Day 2",
     title: "原版阅读：The North Wind & the Sun",
     description: "通读原版文章，并用自己的话翻译成中文",
-    passageSlug: "north-wind-sun-original"
+    passageSlug: "north-wind-sun-original",
+    responseMode: "translation"
   },
   {
     id: "peppa-muddy-puddles",
     label: "Peppa Pig",
     title: "剧本阅读：Muddy Puddles",
     description: "读小猪佩奇第一集剧本，重点看泥坑、穿靴子和清理干净这些表达",
-    passageSlug: "peppa-pig-muddy-puddles"
+    passageSlug: "peppa-pig-muddy-puddles",
+    responseMode: "complete"
   }
 ] as const;
 
@@ -104,6 +107,20 @@ type ReadingTask = (typeof readingTasks)[number];
 
 function shuffleArray<T>(items: T[]): T[] {
   return [...items].sort(() => Math.random() - 0.5);
+}
+
+function getWordKey(item: VocabItem): string {
+  return normalizeAnswer(item.english);
+}
+
+function uniqueWords(items: VocabItem[]): VocabItem[] {
+  const seen = new Set<string>();
+  return items.filter((item) => {
+    const key = getWordKey(item);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
 function normalizeAnswer(value: string): string {
@@ -223,9 +240,11 @@ export default function App() {
         if (!rawQuizState) return;
 
         const persisted = JSON.parse(rawQuizState) as PersistedQuizState;
-        const restoredQueue = persisted.queueIds
-          .map((id) => data.words.find((item) => item.id === id))
-          .filter((item): item is VocabItem => Boolean(item));
+        const restoredQueue = uniqueWords(
+          persisted.queueIds
+            .map((id) => data.words.find((item) => item.id === id))
+            .filter((item): item is VocabItem => Boolean(item))
+        );
         if (restoredQueue.length === 0) return;
 
         setActiveSection(persisted.section);
@@ -285,12 +304,15 @@ export default function App() {
   const accuracy = attemptedCount === 0 ? 0 : Math.round((correctCount / attemptedCount) * 100);
   const progress = queue.length === 0 ? 0 : Math.min(100, Math.round((index / queue.length) * 100));
   const mistakes = records.filter((record) => !record.correct);
-  const allWords = words;
+  const allWords = useMemo(() => uniqueWords(words), [words]);
   const day1InProgress = activeTaskId === "day1" && queue.length > 0 && index < queue.length;
   const day1ProgressText = day1InProgress ? `已做 ${Math.min(index, queue.length)} / ${queue.length} 题` : "中等难度 · 100 个高频词";
   const showQuizProgress = queue.length > 0 && activeSection !== "overview" && activeSection !== "review";
   const showTaskSection = activeSection === "overview" || (activeSection === "spelling" && queue.length === 0);
   const activeReadingTask = findReadingTask(activeTaskId);
+  const activeReadingSubmission = activeReadingTask
+    ? readingSubmissions.find((submission) => submission.taskId === activeReadingTask.id)
+    : undefined;
 
   useEffect(() => {
     questionStartedAt.current = current ? performance.now() : null;
@@ -311,9 +333,9 @@ export default function App() {
   }, [readingPassageSlug]);
 
   useEffect(() => {
-    if (!username || activeSection !== "reading" || !activeReadingTask) return;
+    if (!username || activeSection !== "reading" || activeReadingTask?.responseMode !== "translation") return;
     localStorage.setItem(getReadingStateKey(username, activeReadingTask.id), translationText);
-  }, [activeSection, activeTaskId, translationText, username]);
+  }, [activeReadingTask, activeSection, translationText, username]);
 
   useEffect(() => {
     if (!username || activeSection !== "reading") return;
@@ -323,18 +345,20 @@ export default function App() {
 
     setActiveTaskId(task.id);
     setReadingPassageSlug((currentSlug) => currentSlug || task.passageSlug);
-    setTranslationText(
-      (currentText) => currentText || localStorage.getItem(getReadingStateKey(username, task.id)) || latestSubmission?.translationText || ""
-    );
+    setTranslationText((currentText) => {
+      if (task.responseMode === "complete") return "";
+      return currentText || localStorage.getItem(getReadingStateKey(username, task.id)) || latestSubmission?.translationText || "";
+    });
     setReadingSubmitted(Boolean(latestSubmission));
     if (readingStartedAt.current === null) readingStartedAt.current = performance.now();
   }, [activeSection, activeTaskId, readingSubmissions, username]);
 
   const choices = useMemo(() => {
     if (!current) return [];
-    const wrongChoices = shuffleArray(allWords.filter((item) => item.id !== current.id))
-      .slice(0, 3)
-      .map((item) => item.chinese);
+    const wrongChoices = shuffleArray(allWords.filter((item) => getWordKey(item) !== getWordKey(current)))
+      .map((item) => item.chinese)
+      .filter((choice, choiceIndex, list) => choice !== current.chinese && list.indexOf(choice) === choiceIndex)
+      .slice(0, 3);
     return shuffleArray([current.chinese, ...wrongChoices]);
   }, [allWords, current]);
 
@@ -433,6 +457,10 @@ export default function App() {
   }
 
   function openSection(section: AppSection) {
+    if (section === "wordbook" && activeSection === "wordbook" && queue.length > 0) {
+      stopQuiz("wordbook");
+      return;
+    }
     setActiveSection(section);
     setSelected("");
     setTyped("");
@@ -442,6 +470,19 @@ export default function App() {
 
   function isNavActive(section: AppSection) {
     return activeSection === section || (section === "overview" && (activeSection === "spelling" || activeSection === "reading"));
+  }
+
+  function getReadingTaskProgressText(task: ReadingTask): string {
+    const submission = readingSubmissions.find((item) => item.taskId === task.id);
+    if (!submission) return task.description;
+    const submittedAt = new Date(submission.submittedAt).toLocaleString();
+    return task.responseMode === "translation" ? `已提交翻译 · ${submittedAt}` : `已读完 · ${submittedAt}`;
+  }
+
+  function getReadingTaskButtonText(task: ReadingTask): string {
+    const hasSubmission = readingSubmissions.some((item) => item.taskId === task.id);
+    if (task.id === "day2") return hasSubmission ? "查看 Day 2" : "开始 Day 2";
+    return hasSubmission ? "查看剧本" : "开始剧本";
   }
 
   function startQuiz(
@@ -507,13 +548,13 @@ export default function App() {
     setFeedback("idle");
     if (username) localStorage.setItem(getActiveReadingTaskKey(username), task.id);
     const savedTranslation = username ? localStorage.getItem(getReadingStateKey(username, task.id)) : null;
-    setTranslationText(savedTranslation ?? latestSubmission?.translationText ?? "");
+    setTranslationText(task.responseMode === "translation" ? savedTranslation ?? latestSubmission?.translationText ?? "" : "");
     readingStartedAt.current = performance.now();
   }
 
   async function submitReadingTask(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!username || !activeReadingTask || !readingPassageSlug || translationText.trim().length === 0) return;
+    if (!username || activeReadingTask?.responseMode !== "translation" || !readingPassageSlug || translationText.trim().length === 0) return;
     const durationMs =
       readingStartedAt.current === null ? null : Math.max(0, Math.round(performance.now() - readingStartedAt.current));
     const response = await fetch("/api/reading-submissions", {
@@ -528,7 +569,7 @@ export default function App() {
       })
     });
     if (!response.ok) {
-      setReadingError("翻译没有提交成功，请再试一次。");
+      setReadingError("提交没有成功，请再试一次。");
       return;
     }
     if (username) localStorage.removeItem(getReadingStateKey(username, activeReadingTask.id));
@@ -536,8 +577,44 @@ export default function App() {
     await refreshUserData(username);
   }
 
+  async function completeReadingTask() {
+    if (!username || !activeReadingTask || !readingPassageSlug) return;
+    const durationMs =
+      readingStartedAt.current === null ? null : Math.max(0, Math.round(performance.now() - readingStartedAt.current));
+    const response = await fetch("/api/reading-submissions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        username,
+        task_id: activeReadingTask.id,
+        passage_slug: readingPassageSlug,
+        translation_text: "已完成阅读",
+        duration_ms: durationMs
+      })
+    });
+    if (!response.ok) {
+      setReadingError("提交没有成功，请再试一次。");
+      return;
+    }
+    setReadingSubmitted(true);
+    await refreshUserData(username);
+  }
+
   function restart() {
     startQuiz(mode, { difficulty: spellingDifficulty, count: questionCount, section: activeSection });
+  }
+
+  function stopQuiz(nextSection: AppSection = activeSection === "wordbook" ? "wordbook" : "overview") {
+    setQueue([]);
+    setIndex(0);
+    setSelected("");
+    setTyped("");
+    setFeedback("idle");
+    setRecords([]);
+    setActiveTaskId(undefined);
+    if (username) localStorage.removeItem(getQuizStateKey(username));
+    localStorage.removeItem(QUIZ_STATE_KEY);
+    setActiveSection(nextSection);
   }
 
   function saveAnswer(answer: string, correct: boolean, item: VocabItem, answerDurationMs: number | null) {
@@ -586,13 +663,7 @@ export default function App() {
   }
 
   function clearFinishedQuiz() {
-    setQueue([]);
-    setIndex(0);
-    setRecords([]);
-    setActiveTaskId(undefined);
-    if (username) localStorage.removeItem(getQuizStateKey(username));
-    localStorage.removeItem(QUIZ_STATE_KEY);
-    openSection("overview");
+    stopQuiz("overview");
   }
 
   if (!username) {
@@ -684,6 +755,12 @@ export default function App() {
               <Shuffle aria-hidden="true" />
               重新开始本练习
             </button>
+            {activeSection === "wordbook" && (
+              <button className="ghost-button" onClick={() => stopQuiz("wordbook")}>
+                <ArrowLeft aria-hidden="true" />
+                返回单词本
+              </button>
+            )}
           </>
         )}
       </aside>
@@ -710,34 +787,22 @@ export default function App() {
               <div>
                 <span className="task-day">Day 2</span>
                 <h3>{readingTasks[0].title}</h3>
-                <p>
-                  {readingSubmissions.find((submission) => submission.taskId === readingTasks[0].id)
-                    ? `已提交翻译 · ${new Date(
-                        readingSubmissions.find((submission) => submission.taskId === readingTasks[0].id)!.submittedAt
-                      ).toLocaleString()}`
-                    : readingTasks[0].description}
-                </p>
+                <p>{getReadingTaskProgressText(readingTasks[0])}</p>
               </div>
               <button className="primary-button" onClick={() => startReadingTask(readingTasks[0])}>
                 <BookOpen aria-hidden="true" />
-                {readingSubmissions.some((submission) => submission.taskId === readingTasks[0].id) ? "查看 Day 2" : "开始 Day 2"}
+                {getReadingTaskButtonText(readingTasks[0])}
               </button>
             </div>
             <div className="task-card">
               <div>
                 <span className="task-day">{readingTasks[1].label}</span>
                 <h3>{readingTasks[1].title}</h3>
-                <p>
-                  {readingSubmissions.find((submission) => submission.taskId === readingTasks[1].id)
-                    ? `已提交翻译 · ${new Date(
-                        readingSubmissions.find((submission) => submission.taskId === readingTasks[1].id)!.submittedAt
-                      ).toLocaleString()}`
-                    : readingTasks[1].description}
-                </p>
+                <p>{getReadingTaskProgressText(readingTasks[1])}</p>
               </div>
               <button className="primary-button" onClick={() => startReadingTask(readingTasks[1])}>
                 <BookOpen aria-hidden="true" />
-                {readingSubmissions.some((submission) => submission.taskId === readingTasks[1].id) ? "查看 Peppa" : "开始 Peppa"}
+                {getReadingTaskButtonText(readingTasks[1])}
               </button>
             </div>
           </section>
@@ -747,8 +812,12 @@ export default function App() {
           <section className="dashboard reading-dashboard">
             <div className="section-heading">
               <p className="prompt-label">{activeReadingTask?.label ?? "阅读任务"}</p>
-              <h2>通读并翻译</h2>
-              <p>先读原文，再用自己的办法翻译成中文。翻译不用漂亮，但要写出每句话的大意。</p>
+              <h2>{activeReadingTask?.responseMode === "complete" ? "通读剧本" : "通读并翻译"}</h2>
+              <p>
+                {activeReadingTask?.responseMode === "complete"
+                  ? "先把剧本读顺，重点留意下面的词组和句子里的用法。"
+                  : "先读原文，再用自己的办法翻译成中文。翻译不用漂亮，但要写出每句话的大意。"}
+              </p>
             </div>
             {readingError && <p className="inline-error">{readingError}</p>}
             {!readingPassage && !readingError && (
@@ -774,22 +843,33 @@ export default function App() {
                     </div>
                   )}
                 </article>
-                <form className="translation-form" onSubmit={submitReadingTask}>
-                  <label htmlFor="translation-text">我的中文翻译</label>
-                  <textarea
-                    id="translation-text"
-                    onChange={(event) => setTranslationText(event.target.value)}
-                    placeholder="把文章翻译成中文，可以先按自己的理解写。"
-                    value={translationText}
-                  />
-                  <div className="translation-actions">
-                    <button className="primary-button" disabled={translationText.trim().length === 0}>
+                {activeReadingTask?.responseMode === "translation" && (
+                  <form className="translation-form" onSubmit={submitReadingTask}>
+                    <label htmlFor="translation-text">我的中文翻译</label>
+                    <textarea
+                      id="translation-text"
+                      onChange={(event) => setTranslationText(event.target.value)}
+                      placeholder="把文章翻译成中文，可以先按自己的理解写。"
+                      value={translationText}
+                    />
+                    <div className="translation-actions">
+                      <button className="primary-button" disabled={translationText.trim().length === 0}>
+                        <Check aria-hidden="true" />
+                        提交翻译
+                      </button>
+                      {readingSubmitted && <span>已提交，后面可以继续修改再提交。</span>}
+                    </div>
+                  </form>
+                )}
+                {activeReadingTask?.responseMode === "complete" && (
+                  <div className="reading-actions">
+                    <button className="primary-button" disabled={readingSubmitted} onClick={completeReadingTask}>
                       <Check aria-hidden="true" />
-                      提交翻译
+                      {readingSubmitted ? "已读完" : "我读完了"}
                     </button>
-                    {readingSubmitted && <span>已提交，后面可以继续修改再提交。</span>}
+                    {activeReadingSubmission && <span>完成时间：{new Date(activeReadingSubmission.submittedAt).toLocaleString()}</span>}
                   </div>
-                </form>
+                )}
               </>
             )}
           </section>

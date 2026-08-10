@@ -536,7 +536,13 @@ p {
   gap: 10px;
 }
 
-.translation-actions span {
+.reading-actions {
+  display: grid;
+  gap: 10px;
+}
+
+.translation-actions span,
+.reading-actions span {
   color: #5b6c5d;
   font-size: 0.9rem;
 }
@@ -858,6 +864,11 @@ p {
     grid-template-columns: auto 1fr;
   }
 
+  .reading-actions {
+    align-items: center;
+    grid-template-columns: auto 1fr;
+  }
+
   .feedback .primary-button {
     margin-left: auto;
   }
@@ -898,6 +909,10 @@ p {
 
   .ghost-button {
     margin-top: auto;
+  }
+
+  .ghost-button + .ghost-button {
+    margin-top: 0;
   }
 
   .quiz-panel {
