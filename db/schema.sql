@@ -169,7 +169,7 @@ Narrator: Peppa and George are having a lot of fun.
 Narrator: Peppa has found a little puddle.
 Narrator: George has found a big puddle.
 Peppa: Look, George. There's a really big puddle.
-Narrator: George wants to jump into the you big puddle first.
+Narrator: George wants to jump into the big puddle first.
 Peppa: Stop, George.
 Peppa: I must check if it's safe for you.
 Peppa: Good. It is safe for you.
@@ -186,16 +186,16 @@ Peppa: No. No. Daddy.
 Daddy Pig: Have you just had a bath?
 Peppa: No. No.
 Daddy Pig: I know. You've been jumping in muddy puddles.
-Peppa: Yes. Yes. Daddy. We've been in muddy puddles.
+Peppa: Yes. Yes. Daddy. We've been jumping in muddy puddles.
 Daddy Pig: Ho. Ho. And look at the mess you're in.
 Peppa: Ooh...
 Daddy Pig: Oh, well, it's only mud.
 Daddy Pig: Let's clean up quickly before Mummy sees the mess.
-Peppa: Daddy, when we've cleaned up, will and Mummy come and play, too?
+Peppa: Daddy, when we've cleaned up, will you and Mummy come and play, too?
 Daddy Pig: Yes, we can all play in the garden.
 Narrator: Peppa and George are wearing their boots.
 Narrator: Mummy and Daddy are wearing their boots.
-Narrator: Peppa loves jumping up and it Mr. down in muddy puddles.
+Narrator: Peppa loves jumping up and down in muddy puddles.
 Narrator: Everyone loves jumping up and down in muddy puddles.
 Mummy Pig: Oh, Daddy Pig, look at the mess you're in.
 Peppa: It's only mud.$$,
@@ -203,12 +203,12 @@ Peppa: It's only mud.$$,
 puddle 水坑
 muddy puddle 泥坑
 all right 好吧
-run along 走开
+run along 去吧 / 去玩吧
 look after 照顾
 a lot of 许多
 have a lot of fun 玩得超级开心
 check 检查
-Goodness me. 天哪
+Goodness me. 我的天哪 / 真是的
 come on 快点
 have a bath 洗澡
 Look at... 看...
