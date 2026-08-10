@@ -81,8 +81,26 @@ const difficultyLabels: Record<SpellingDifficulty, string> = {
 
 const navSections: AppSection[] = ["overview", "wordbook", "review"];
 const validSections: AppSection[] = ["overview", "wordbook", "reading", "review"];
-const DAY2_PASSAGE_SLUG = "north-wind-sun-original";
 const READING_STATE_KEY = "grade7-vocab-reading-state";
+const ACTIVE_READING_TASK_KEY = "grade7-vocab-active-reading-task";
+const readingTasks = [
+  {
+    id: "day2",
+    label: "Day 2",
+    title: "原版阅读：The North Wind & the Sun",
+    description: "通读原版文章，并用自己的话翻译成中文",
+    passageSlug: "north-wind-sun-original"
+  },
+  {
+    id: "peppa-muddy-puddles",
+    label: "Peppa Pig",
+    title: "剧本阅读：Muddy Puddles",
+    description: "读小猪佩奇第一集剧本，重点看泥坑、穿靴子和清理干净这些表达",
+    passageSlug: "peppa-pig-muddy-puddles"
+  }
+] as const;
+
+type ReadingTask = (typeof readingTasks)[number];
 
 function shuffleArray<T>(items: T[]): T[] {
   return [...items].sort(() => Math.random() - 0.5);
@@ -140,6 +158,14 @@ function getQuizStateKey(currentUsername: string): string {
 
 function getReadingStateKey(currentUsername: string, taskId: string): string {
   return `${READING_STATE_KEY}:${currentUsername}:${taskId}`;
+}
+
+function getActiveReadingTaskKey(currentUsername: string): string {
+  return `${ACTIVE_READING_TASK_KEY}:${currentUsername}`;
+}
+
+function findReadingTask(taskId: string | undefined): ReadingTask | undefined {
+  return readingTasks.find((task) => task.id === taskId);
 }
 
 function formatAnswerDuration(durationMs: number | null): string {
@@ -264,10 +290,7 @@ export default function App() {
   const day1ProgressText = day1InProgress ? `已做 ${Math.min(index, queue.length)} / ${queue.length} 题` : "中等难度 · 100 个高频词";
   const showQuizProgress = queue.length > 0 && activeSection !== "overview" && activeSection !== "review";
   const showTaskSection = activeSection === "overview" || (activeSection === "spelling" && queue.length === 0);
-  const day2Submission = readingSubmissions.find((submission) => submission.taskId === "day2");
-  const day2ProgressText = day2Submission
-    ? `已提交翻译 · ${new Date(day2Submission.submittedAt).toLocaleString()}`
-    : "通读原版文章，并用自己的话翻译成中文";
+  const activeReadingTask = findReadingTask(activeTaskId);
 
   useEffect(() => {
     questionStartedAt.current = current ? performance.now() : null;
@@ -288,18 +311,24 @@ export default function App() {
   }, [readingPassageSlug]);
 
   useEffect(() => {
-    if (!username || activeSection !== "reading" || activeTaskId !== "day2") return;
-    localStorage.setItem(getReadingStateKey(username, "day2"), translationText);
+    if (!username || activeSection !== "reading" || !activeReadingTask) return;
+    localStorage.setItem(getReadingStateKey(username, activeReadingTask.id), translationText);
   }, [activeSection, activeTaskId, translationText, username]);
 
   useEffect(() => {
     if (!username || activeSection !== "reading") return;
-    setActiveTaskId((currentTaskId) => currentTaskId ?? "day2");
-    setReadingPassageSlug((currentSlug) => currentSlug || DAY2_PASSAGE_SLUG);
-    setTranslationText((currentText) => currentText || localStorage.getItem(getReadingStateKey(username, "day2")) || "");
-    setReadingSubmitted(Boolean(day2Submission));
+    const savedTaskId = localStorage.getItem(getActiveReadingTaskKey(username));
+    const task = findReadingTask(activeTaskId) ?? findReadingTask(savedTaskId ?? undefined) ?? readingTasks[0];
+    const latestSubmission = readingSubmissions.find((submission) => submission.taskId === task.id);
+
+    setActiveTaskId(task.id);
+    setReadingPassageSlug((currentSlug) => currentSlug || task.passageSlug);
+    setTranslationText(
+      (currentText) => currentText || localStorage.getItem(getReadingStateKey(username, task.id)) || latestSubmission?.translationText || ""
+    );
+    setReadingSubmitted(Boolean(latestSubmission));
     if (readingStartedAt.current === null) readingStartedAt.current = performance.now();
-  }, [activeSection, day2Submission, username]);
+  }, [activeSection, activeTaskId, readingSubmissions, username]);
 
   const choices = useMemo(() => {
     if (!current) return [];
@@ -463,26 +492,28 @@ export default function App() {
     });
   }
 
-  function startDay2() {
+  function startReadingTask(task: ReadingTask) {
     setActiveSection("reading");
-    setActiveTaskId("day2");
-    setReadingPassageSlug(DAY2_PASSAGE_SLUG);
+    setActiveTaskId(task.id);
+    setReadingPassageSlug(task.passageSlug);
     setReadingPassage(null);
     setReadingError("");
-    setReadingSubmitted(Boolean(day2Submission));
+    const latestSubmission = readingSubmissions.find((submission) => submission.taskId === task.id);
+    setReadingSubmitted(Boolean(latestSubmission));
     setQueue([]);
     setIndex(0);
     setSelected("");
     setTyped("");
     setFeedback("idle");
-    const savedTranslation = username ? localStorage.getItem(getReadingStateKey(username, "day2")) : null;
-    setTranslationText(savedTranslation ?? day2Submission?.translationText ?? "");
+    if (username) localStorage.setItem(getActiveReadingTaskKey(username), task.id);
+    const savedTranslation = username ? localStorage.getItem(getReadingStateKey(username, task.id)) : null;
+    setTranslationText(savedTranslation ?? latestSubmission?.translationText ?? "");
     readingStartedAt.current = performance.now();
   }
 
   async function submitReadingTask(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!username || !readingPassageSlug || translationText.trim().length === 0) return;
+    if (!username || !activeReadingTask || !readingPassageSlug || translationText.trim().length === 0) return;
     const durationMs =
       readingStartedAt.current === null ? null : Math.max(0, Math.round(performance.now() - readingStartedAt.current));
     const response = await fetch("/api/reading-submissions", {
@@ -490,7 +521,7 @@ export default function App() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         username,
-        task_id: "day2",
+        task_id: activeReadingTask.id,
         passage_slug: readingPassageSlug,
         translation_text: translationText.trim(),
         duration_ms: durationMs
@@ -500,7 +531,7 @@ export default function App() {
       setReadingError("翻译没有提交成功，请再试一次。");
       return;
     }
-    if (username) localStorage.removeItem(getReadingStateKey(username, "day2"));
+    if (username) localStorage.removeItem(getReadingStateKey(username, activeReadingTask.id));
     setReadingSubmitted(true);
     await refreshUserData(username);
   }
@@ -678,22 +709,35 @@ export default function App() {
             <div className="task-card">
               <div>
                 <span className="task-day">Day 2</span>
-                <h3>原版阅读：The North Wind & the Sun</h3>
-                <p>{day2ProgressText}</p>
+                <h3>{readingTasks[0].title}</h3>
+                <p>
+                  {readingSubmissions.find((submission) => submission.taskId === readingTasks[0].id)
+                    ? `已提交翻译 · ${new Date(
+                        readingSubmissions.find((submission) => submission.taskId === readingTasks[0].id)!.submittedAt
+                      ).toLocaleString()}`
+                    : readingTasks[0].description}
+                </p>
               </div>
-              <button className="primary-button" onClick={startDay2}>
+              <button className="primary-button" onClick={() => startReadingTask(readingTasks[0])}>
                 <BookOpen aria-hidden="true" />
-                {day2Submission ? "查看 Day 2" : "开始 Day 2"}
+                {readingSubmissions.some((submission) => submission.taskId === readingTasks[0].id) ? "查看 Day 2" : "开始 Day 2"}
               </button>
             </div>
-            <div className="task-card muted">
+            <div className="task-card">
               <div>
-                <span className="task-day">Peppa Pig</span>
-                <h3>小猪佩奇第一集原文</h3>
-                <p>等你提供原文后，我会录入为后续阅读任务。</p>
+                <span className="task-day">{readingTasks[1].label}</span>
+                <h3>{readingTasks[1].title}</h3>
+                <p>
+                  {readingSubmissions.find((submission) => submission.taskId === readingTasks[1].id)
+                    ? `已提交翻译 · ${new Date(
+                        readingSubmissions.find((submission) => submission.taskId === readingTasks[1].id)!.submittedAt
+                      ).toLocaleString()}`
+                    : readingTasks[1].description}
+                </p>
               </div>
-              <button className="ghost-button light" disabled>
-                待录入
+              <button className="primary-button" onClick={() => startReadingTask(readingTasks[1])}>
+                <BookOpen aria-hidden="true" />
+                {readingSubmissions.some((submission) => submission.taskId === readingTasks[1].id) ? "查看 Peppa" : "开始 Peppa"}
               </button>
             </div>
           </section>
@@ -702,7 +746,7 @@ export default function App() {
         {activeSection === "reading" && (
           <section className="dashboard reading-dashboard">
             <div className="section-heading">
-              <p className="prompt-label">Day 2</p>
+              <p className="prompt-label">{activeReadingTask?.label ?? "阅读任务"}</p>
               <h2>通读并翻译</h2>
               <p>先读原文，再用自己的办法翻译成中文。翻译不用漂亮，但要写出每句话的大意。</p>
             </div>
@@ -721,6 +765,14 @@ export default function App() {
                   {readingPassage.body.split("\n\n").map((paragraph) => (
                     <p key={paragraph}>{paragraph}</p>
                   ))}
+                  {readingPassage.notes && (
+                    <div className="reading-notes">
+                      <h4>重点词组</h4>
+                      {readingPassage.notes.split("\n").map((line) => (
+                        <p key={line}>{line}</p>
+                      ))}
+                    </div>
+                  )}
                 </article>
                 <form className="translation-form" onSubmit={submitReadingTask}>
                   <label htmlFor="translation-text">我的中文翻译</label>

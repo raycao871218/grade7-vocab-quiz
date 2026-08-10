@@ -139,7 +139,82 @@ With the first gust of wind the ends of the cloak whipped about the Traveler's b
 Then the Sun began to shine. At first his beams were gentle, and in the pleasant warmth after the bitter cold of the North Wind, the Traveler unfastened his cloak and let it hang loosely from his shoulders. The Sun's rays grew warmer and warmer. The man took off his cap and mopped his brow. At last he became so heated that he pulled off his cloak, and, to escape the blazing sunshine, threw himself down in the welcome shade of a tree by the roadside.
 
 Gentleness and kind persuasion win where force and bluster fail.$$,
-  'Original public-domain Aesop version for Day 2 reading and translation.'
+  ''
+)
+ON CONFLICT (slug) DO UPDATE
+  SET title = EXCLUDED.title,
+      source = EXCLUDED.source,
+      body = EXCLUDED.body,
+      notes = EXCLUDED.notes,
+      updated_at = now();
+
+INSERT INTO reading_passages (slug, title, source, body, notes)
+VALUES (
+  'peppa-pig-muddy-puddles',
+  'Muddy Puddles',
+  'Peppa Pig episode script provided by user',
+  $$Narrator: It is raining today. So Peppa and George cannot play outside.
+Peppa: Daddy, it's stopped raining.
+Peppa: Can we go out to play?
+Daddy Pig: All right, run along you two.
+Narrator: Peppa loves jumping in muddy puddles.
+Peppa: I love muddy puddles.
+Mummy Pig: Peppa! If you jump in muddy puddles, you must wear your boots.
+Peppa: Sorry, Mummy.
+Narrator: George likes to jump in muddy puddles, too.
+Peppa: George. If you jump in muddy puddles, you must wear your boots.
+Narrator: Peppa likes to look after her little brother, George.
+Peppa: George, let's find some more jumping puddles.
+Narrator: Peppa and George are having a lot of fun.
+Narrator: Peppa has found a little puddle.
+Narrator: George has found a big puddle.
+Peppa: Look, George. There's a really big puddle.
+Narrator: George wants to jump into the you big puddle first.
+Peppa: Stop, George.
+Peppa: I must check if it's safe for you.
+Peppa: Good. It is safe for you.
+Peppa: Sorry, George. It's only mud.
+Narrator: Peppa and George love jumping in muddy puddles.
+Peppa: Come on, George.
+Peppa: Let's go and show Daddy.
+Daddy Pig: Goodness me.
+Peppa: Daddy. Daddy.
+Peppa: Guess what we've been doing.
+Daddy Pig: Let me think...
+Daddy Pig: Have you been watching television?
+Peppa: No. No. Daddy.
+Daddy Pig: Have you just had a bath?
+Peppa: No. No.
+Daddy Pig: I know. You've been jumping in muddy puddles.
+Peppa: Yes. Yes. Daddy. We've been in muddy puddles.
+Daddy Pig: Ho. Ho. And look at the mess you're in.
+Peppa: Ooh...
+Daddy Pig: Oh, well, it's only mud.
+Daddy Pig: Let's clean up quickly before Mummy sees the mess.
+Peppa: Daddy, when we've cleaned up, will and Mummy come and play, too?
+Daddy Pig: Yes, we can all play in the garden.
+Narrator: Peppa and George are wearing their boots.
+Narrator: Mummy and Daddy are wearing their boots.
+Narrator: Peppa loves jumping up and it Mr. down in muddy puddles.
+Narrator: Everyone loves jumping up and down in muddy puddles.
+Mummy Pig: Oh, Daddy Pig, look at the mess you're in.
+Peppa: It's only mud.$$,
+  $$muddy 泥泞的
+puddle 水坑
+muddy puddle 泥坑
+all right 好吧
+run along 走开
+look after 照顾
+a lot of 许多
+have a lot of fun 玩得超级开心
+check 检查
+Goodness me. 天哪
+come on 快点
+have a bath 洗澡
+Look at... 看...
+mess 乱七八糟
+clean up 清理干净
+up and down 上上下下$$
 )
 ON CONFLICT (slug) DO UPDATE
   SET title = EXCLUDED.title,

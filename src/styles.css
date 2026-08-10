@@ -483,10 +483,30 @@ p {
   color: #24352c;
   font-size: 1rem;
   line-height: 1.75;
+  white-space: pre-line;
 }
 
 .reading-passage p:last-child {
   margin-bottom: 0;
+}
+
+.reading-notes {
+  margin-top: 18px;
+  border-top: 1px solid #e5dbc9;
+  padding-top: 14px;
+}
+
+.reading-notes h4 {
+  margin: 0 0 8px;
+  color: #7d6241;
+  font-size: 1rem;
+}
+
+.reading-notes p {
+  margin: 4px 0;
+  color: #425447;
+  font-size: 0.94rem;
+  line-height: 1.55;
 }
 
 .translation-form {
