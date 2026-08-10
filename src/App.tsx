@@ -53,15 +53,18 @@ type PersistedQuizState = {
   index: number;
   sessionId: string;
   taskId?: string;
+  dayId?: string;
   records: Array<{ id: number; english: string; chinese: string; userAnswer: string; correct: boolean }>;
 };
 
 const USERNAME_KEY = "grade7-vocab-username";
 const SECTION_KEY = "grade7-vocab-section";
 const QUIZ_STATE_KEY = "grade7-vocab-quiz-state";
+const ACTIVE_DAY_KEY = "grade7-vocab-active-day";
 
 const sectionLabels: Record<AppSection, string> = {
   overview: "任务",
+  taskDetail: "任务详情",
   wordbook: "单词本",
   spelling: "拼写自测",
   reading: "阅读任务",
@@ -81,29 +84,99 @@ const difficultyLabels: Record<SpellingDifficulty, string> = {
 };
 
 const navSections: AppSection[] = ["overview", "wordbook", "review"];
-const validSections: AppSection[] = ["overview", "wordbook", "reading", "review"];
+const validSections: AppSection[] = ["overview", "taskDetail", "wordbook", "spelling", "reading", "review"];
 const READING_STATE_KEY = "grade7-vocab-reading-state";
 const ACTIVE_READING_TASK_KEY = "grade7-vocab-active-reading-task";
-const readingTasks = [
+type TaskItemType = "quiz" | "script-reading" | "translation";
+
+type DailyTaskItem = {
+  id: string;
+  type: TaskItemType;
+  label: string;
+  title: string;
+  description: string;
+  passageSlug?: string;
+  responseMode?: "complete" | "translation";
+  mode?: QuizMode;
+  difficulty?: SpellingDifficulty;
+  count?: number;
+  sessionPrefix?: string;
+  source?: "allWords" | "yesterdayAnswers";
+};
+
+type DailyTask = {
+  id: string;
+  label: string;
+  title: string;
+  description: string;
+  items: DailyTaskItem[];
+};
+
+const dailyTasks: DailyTask[] = [
+  {
+    id: "day1",
+    label: "Day 1",
+    title: "中等难度拼写自测",
+    description: "100 个高频词，中等难度。做完后可以在 Review 里看本轮记录。",
+    items: [
+      {
+        id: "day1-spelling",
+        type: "quiz",
+        label: "第一项",
+        title: "拼写自测 100 个",
+        description: "看中文，拼写英文。",
+        mode: "spelling",
+        difficulty: "medium",
+        count: 100,
+        sessionPrefix: "day1-",
+        source: "allWords"
+      }
+    ]
+  },
   {
     id: "day2",
     label: "Day 2",
-    title: "原版阅读：The North Wind & the Sun",
-    description: "通读原版文章，并用自己的话翻译成中文",
-    passageSlug: "north-wind-sun-original",
-    responseMode: "translation"
-  },
-  {
-    id: "peppa-muddy-puddles",
-    label: "Peppa Pig",
-    title: "剧本阅读：Muddy Puddles",
-    description: "读小猪佩奇第一集剧本，重点看泥坑、穿靴子和清理干净这些表达",
-    passageSlug: "peppa-pig-muddy-puddles",
-    responseMode: "complete"
+    title: "阅读 + 翻译 + 昨日词复习",
+    description: "先熟读剧本，再翻译短文，最后用昨天做过的词完成英译中选择题。",
+    items: [
+      {
+        id: "day2-muddy-read",
+        type: "script-reading",
+        label: "第一项",
+        title: "熟读 Muddy Puddles",
+        description: "把小猪佩奇第一集剧本读顺，重点看句子里的常用表达。",
+        passageSlug: "peppa-pig-muddy-puddles",
+        responseMode: "complete"
+      },
+      {
+        id: "day2-north-translate",
+        type: "translation",
+        label: "第二项",
+        title: "翻译 The North Wind and the Sun",
+        description: "通读原版文章，并用自己的话翻译成中文。",
+        passageSlug: "north-wind-sun-original",
+        responseMode: "translation"
+      },
+      {
+        id: "day2-yesterday-choice",
+        type: "quiz",
+        label: "第三项",
+        title: "英译中选择题 30 个",
+        description: "从昨天答过的单词里抽题，复习刚见过的词。",
+        mode: "choice",
+        difficulty: "medium",
+        count: 30,
+        sessionPrefix: "day2-yesterday-choice-",
+        source: "yesterdayAnswers"
+      }
+    ]
   }
-] as const;
+] as const satisfies DailyTask[];
 
-type ReadingTask = (typeof readingTasks)[number];
+type ReadingTask = DailyTaskItem & { passageSlug: string; responseMode: "complete" | "translation" };
+const readingTasks = dailyTasks.flatMap((task) =>
+  task.items.filter((item): item is ReadingTask => Boolean(item.passageSlug && item.responseMode))
+);
 
 function shuffleArray<T>(items: T[]): T[] {
   return [...items].sort(() => Math.random() - 0.5);
@@ -181,8 +254,30 @@ function getActiveReadingTaskKey(currentUsername: string): string {
   return `${ACTIVE_READING_TASK_KEY}:${currentUsername}`;
 }
 
+function getActiveDayKey(currentUsername: string): string {
+  return `${ACTIVE_DAY_KEY}:${currentUsername}`;
+}
+
+function findDailyTask(dayId: string | undefined): DailyTask | undefined {
+  return dailyTasks.find((task) => task.id === dayId);
+}
+
 function findReadingTask(taskId: string | undefined): ReadingTask | undefined {
   return readingTasks.find((task) => task.id === taskId);
+}
+
+function toLocalDateKey(value: string | Date): string {
+  const date = typeof value === "string" ? new Date(value) : value;
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function getYesterdayDateKey(): string {
+  const yesterday = new Date();
+  yesterday.setDate(yesterday.getDate() - 1);
+  return toLocalDateKey(yesterday);
 }
 
 function formatAnswerDuration(durationMs: number | null): string {
@@ -215,6 +310,7 @@ export default function App() {
   const [index, setIndex] = useState(0);
   const [sessionId, setSessionId] = useState(createSessionId);
   const [activeTaskId, setActiveTaskId] = useState<string | undefined>();
+  const [activeDayId, setActiveDayId] = useState<string | undefined>(() => localStorage.getItem(ACTIVE_DAY_KEY) ?? undefined);
   const [selected, setSelected] = useState("");
   const [typed, setTyped] = useState("");
   const [feedback, setFeedback] = useState<"idle" | "right" | "wrong">("idle");
@@ -256,6 +352,7 @@ export default function App() {
         setIndex(Math.min(persisted.index, restoredQueue.length));
         setSessionId(persisted.sessionId);
         setActiveTaskId(persisted.taskId);
+        setActiveDayId(persisted.dayId);
         setRecords(
           persisted.records
             .map((record) => {
@@ -275,8 +372,20 @@ export default function App() {
   }, [activeSection]);
 
   useEffect(() => {
+    if (!username) {
+      if (activeDayId) localStorage.setItem(ACTIVE_DAY_KEY, activeDayId);
+      return;
+    }
+    if (activeDayId) {
+      localStorage.setItem(getActiveDayKey(username), activeDayId);
+      localStorage.setItem(ACTIVE_DAY_KEY, activeDayId);
+    }
+  }, [activeDayId, username]);
+
+  useEffect(() => {
     if (!username) return;
     localStorage.setItem(USERNAME_KEY, username);
+    setActiveDayId((currentDayId) => currentDayId ?? localStorage.getItem(getActiveDayKey(username)) ?? undefined);
     setSavedRecords([]);
     setReadingSubmissions([]);
     void refreshUserData(username);
@@ -293,11 +402,12 @@ export default function App() {
       index,
       sessionId,
       taskId: activeTaskId,
+      dayId: activeDayId,
       records: serializeRecords(records)
     };
     localStorage.setItem(getQuizStateKey(username), JSON.stringify(persisted));
     localStorage.removeItem(QUIZ_STATE_KEY);
-  }, [activeSection, activeTaskId, index, mode, questionCount, queue, records, sessionId, spellingDifficulty, username]);
+  }, [activeDayId, activeSection, activeTaskId, index, mode, questionCount, queue, records, sessionId, spellingDifficulty, username]);
 
   const current = queue[index];
   const correctCount = records.filter((record) => record.correct).length;
@@ -306,14 +416,30 @@ export default function App() {
   const progress = queue.length === 0 ? 0 : Math.min(100, Math.round((index / queue.length) * 100));
   const mistakes = records.filter((record) => !record.correct);
   const allWords = useMemo(() => uniqueWords(words), [words]);
-  const day1InProgress = activeTaskId === "day1" && queue.length > 0 && index < queue.length;
-  const day1ProgressText = day1InProgress ? `已做 ${Math.min(index, queue.length)} / ${queue.length} 题` : "中等难度 · 100 个高频词";
+  const activeDailyTask = findDailyTask(activeDayId) ?? dailyTasks[0];
+  const day1InProgress = activeTaskId === "day1-spelling" && queue.length > 0 && index < queue.length;
+  const day2QuizInProgress = activeTaskId === "day2-yesterday-choice" && queue.length > 0 && index < queue.length;
+  const day1ProgressText = day1InProgress ? `已做 ${Math.min(index, queue.length)} / ${queue.length} 题` : "1 个小任务 · 100 题";
   const showQuizProgress = queue.length > 0 && activeSection !== "overview" && activeSection !== "review";
   const showTaskSection = activeSection === "overview" || (activeSection === "spelling" && queue.length === 0);
   const activeReadingTask = findReadingTask(activeTaskId);
   const activeReadingSubmission = activeReadingTask
     ? readingSubmissions.find((submission) => submission.taskId === activeReadingTask.id)
     : undefined;
+  const yesterdayDateKey = getYesterdayDateKey();
+  const yesterdayAnsweredWords = useMemo(() => {
+    const seen = new Set<number>();
+    return savedRecords
+      .filter((record) => toLocalDateKey(record.answeredAt) === yesterdayDateKey)
+      .sort((a, b) => new Date(a.answeredAt).getTime() - new Date(b.answeredAt).getTime())
+      .map((record) => allWords.find((item) => item.id === record.wordId))
+      .filter((item): item is VocabItem => Boolean(item))
+      .filter((item) => {
+        if (seen.has(item.id)) return false;
+        seen.add(item.id);
+        return true;
+      });
+  }, [allWords, savedRecords, yesterdayDateKey]);
   const wordbookCountOptions = useMemo(() => {
     const options = [10, 20, 30, 50, 100, allWords.length].filter((count) => count > 0 && count <= allWords.length);
     return [...new Set(options)].sort((a, b) => a - b);
@@ -387,8 +513,10 @@ export default function App() {
         const total = orderedRecords.length;
         const accuracy = total === 0 ? 0 : Math.round((correct / total) * 100);
         const title = reviewSessionId.startsWith("day1-")
-          ? "Day 1 今日任务"
-          : `${modeLabels[first.mode]}${first.difficulty ? ` · ${difficultyLabels[first.difficulty]}` : ""}`;
+          ? "Day 1 拼写自测"
+          : reviewSessionId.startsWith("day2-yesterday-choice-")
+            ? "Day 2 英译中选择题"
+            : `${modeLabels[first.mode]}${first.difficulty ? ` · ${difficultyLabels[first.difficulty]}` : ""}`;
 
         return {
           id: reviewSessionId,
@@ -435,20 +563,24 @@ export default function App() {
     setRecords([]);
     setSavedRecords([]);
     setActiveTaskId(undefined);
+    setActiveDayId(undefined);
     setReadingPassageSlug("");
     setReadingPassage(null);
     setTranslationText("");
     setReadingSubmitted(false);
     localStorage.removeItem(QUIZ_STATE_KEY);
+    localStorage.removeItem(ACTIVE_DAY_KEY);
     setUsername(nextUsername);
   }
 
   function logout() {
     if (username) localStorage.removeItem(getQuizStateKey(username));
+    if (username) localStorage.removeItem(getActiveDayKey(username));
     setUsername("");
     setLoginName("");
     setActiveSection("overview");
     setActiveTaskId(undefined);
+    setActiveDayId(undefined);
     setQueue([]);
     setIndex(0);
     setRecords([]);
@@ -460,6 +592,7 @@ export default function App() {
     setReadingSubmitted(false);
     localStorage.removeItem(USERNAME_KEY);
     localStorage.removeItem(QUIZ_STATE_KEY);
+    localStorage.removeItem(ACTIVE_DAY_KEY);
   }
 
   function openSection(section: AppSection) {
@@ -475,20 +608,95 @@ export default function App() {
   }
 
   function isNavActive(section: AppSection) {
-    return activeSection === section || (section === "overview" && (activeSection === "spelling" || activeSection === "reading"));
+    return (
+      activeSection === section ||
+      (section === "overview" && (activeSection === "taskDetail" || activeSection === "spelling" || activeSection === "reading"))
+    );
   }
 
-  function getReadingTaskProgressText(task: ReadingTask): string {
+  function getQuizTaskRecords(task: DailyTaskItem): SavedAnswerRecord[] {
+    if (!task.sessionPrefix) return [];
+    const groups = new Map<string, SavedAnswerRecord[]>();
+    savedRecords
+      .filter((record) => record.session_id.startsWith(task.sessionPrefix ?? ""))
+      .forEach((record) => {
+        const group = groups.get(record.session_id) ?? [];
+        group.push(record);
+        groups.set(record.session_id, group);
+      });
+
+    return Array.from(groups.values())
+      .sort((left, right) => {
+        const leftLatest = Math.max(...left.map((record) => new Date(record.answeredAt).getTime()));
+        const rightLatest = Math.max(...right.map((record) => new Date(record.answeredAt).getTime()));
+        return rightLatest - leftLatest;
+      })[0] ?? [];
+  }
+
+  function isTaskItemComplete(task: DailyTaskItem): boolean {
+    if (task.type === "quiz") return getQuizTaskRecords(task).length >= (task.count ?? 0);
+    return readingSubmissions.some((item) => item.taskId === task.id);
+  }
+
+  function isDailyTaskComplete(task: DailyTask): boolean {
+    return task.items.every((item) => isTaskItemComplete(item));
+  }
+
+  function getDailyTaskProgressText(task: DailyTask): string {
+    const completed = task.items.filter((item) => isTaskItemComplete(item)).length;
+    return `${completed} / ${task.items.length} 项完成`;
+  }
+
+  function getTaskItemProgressText(task: DailyTaskItem): string {
+    if (task.type === "quiz" && task.id === "day1-spelling" && day1InProgress) {
+      return `进行中 · 已做 ${Math.min(index, queue.length)} / ${queue.length} 题`;
+    }
+    if (task.type === "quiz" && task.id === "day2-yesterday-choice" && day2QuizInProgress) {
+      return `进行中 · 已做 ${Math.min(index, queue.length)} / ${queue.length} 题`;
+    }
+    if (task.type === "quiz") {
+      const recordsForTask = getQuizTaskRecords(task);
+      if (recordsForTask.length >= (task.count ?? 0)) {
+        const latest = recordsForTask.reduce((currentLatest, record) =>
+          new Date(record.answeredAt).getTime() > new Date(currentLatest.answeredAt).getTime() ? record : currentLatest
+        );
+        const correct = recordsForTask.filter((record) => record.correct).length;
+        return `已完成 · 答对 ${correct} / ${recordsForTask.length} · ${new Date(latest.answeredAt).toLocaleString()}`;
+      }
+      if (task.source === "yesterdayAnswers") {
+        return yesterdayAnsweredWords.length > 0
+          ? `${task.description} 昨天可选 ${yesterdayAnsweredWords.length} 个。`
+          : `昨天还没有可用答题词。`;
+      }
+      return task.description;
+    }
+
     const submission = readingSubmissions.find((item) => item.taskId === task.id);
     if (!submission) return task.description;
     const submittedAt = new Date(submission.submittedAt).toLocaleString();
     return task.responseMode === "translation" ? `已提交翻译 · ${submittedAt}` : `已读完 · ${submittedAt}`;
   }
 
-  function getReadingTaskButtonText(task: ReadingTask): string {
-    const hasSubmission = readingSubmissions.some((item) => item.taskId === task.id);
-    if (task.id === "day2") return hasSubmission ? "查看 Day 2" : "开始 Day 2";
-    return hasSubmission ? "查看剧本" : "开始剧本";
+  function getTaskItemButtonText(task: DailyTaskItem): string {
+    if (task.type === "quiz" && task.id === "day1-spelling") return day1InProgress ? "继续" : isTaskItemComplete(task) ? "再做一次" : "开始";
+    if (task.type === "quiz" && task.id === "day2-yesterday-choice") {
+      if (day2QuizInProgress) return "继续";
+      return isTaskItemComplete(task) ? "再做一次" : "开始";
+    }
+    if (task.type === "script-reading") return isTaskItemComplete(task) ? "再读一遍" : "开始熟读";
+    if (task.type === "translation") return isTaskItemComplete(task) ? "查看翻译" : "开始翻译";
+    return "开始";
+  }
+
+  function openDailyTask(task: DailyTask) {
+    setActiveSection("taskDetail");
+    setActiveDayId(task.id);
+    setQueue([]);
+    setIndex(0);
+    setSelected("");
+    setTyped("");
+    setFeedback("idle");
+    if (username) localStorage.setItem(getActiveDayKey(username), task.id);
   }
 
   function startQuiz(
@@ -499,16 +707,19 @@ export default function App() {
       section?: AppSection;
       sessionId?: string;
       taskId?: string;
+      dayId?: string;
+      sourceWords?: VocabItem[];
     }
   ) {
     const nextDifficulty = options?.difficulty ?? spellingDifficulty;
-    const nextCount = Math.min(options?.count ?? questionCount, allWords.length);
+    const sourceWords = uniqueWords(options?.sourceWords ?? allWords);
+    const nextCount = Math.min(options?.count ?? questionCount, sourceWords.length);
     const nextSection = options?.section ?? (nextMode === "spelling" ? "spelling" : "wordbook");
     setActiveSection(nextSection);
     setMode(nextMode);
     setSpellingDifficulty(nextDifficulty);
     setQuestionCount(nextCount);
-    setQueue(shuffleArray(allWords).slice(0, nextCount));
+    setQueue(shuffleArray(sourceWords).slice(0, nextCount));
     setIndex(0);
     setSelected("");
     setTyped("");
@@ -516,11 +727,13 @@ export default function App() {
     setRecords([]);
     setSessionId(options?.sessionId ?? createSessionId());
     setActiveTaskId(options?.taskId);
+    if (options?.dayId) setActiveDayId(options.dayId);
   }
 
   function startDay1() {
     if (day1InProgress) {
-      setActiveSection("spelling");
+      setActiveSection("taskDetail");
+      setActiveDayId("day1");
       setMode("spelling");
       setSpellingDifficulty("medium");
       setQuestionCount(100);
@@ -533,15 +746,56 @@ export default function App() {
     startQuiz("spelling", {
       difficulty: "medium",
       count: 100,
-      section: "spelling",
+      section: "taskDetail",
       sessionId: `day1-${createSessionId()}`,
-      taskId: "day1"
+      taskId: "day1-spelling",
+      dayId: "day1"
     });
+  }
+
+  function startYesterdayChoiceTask() {
+    if (day2QuizInProgress) {
+      setActiveSection("taskDetail");
+      setActiveDayId("day2");
+      setMode("choice");
+      setSpellingDifficulty("medium");
+      setQuestionCount(Math.min(30, queue.length || yesterdayAnsweredWords.length));
+      setSelected("");
+      setTyped("");
+      setFeedback("idle");
+      return;
+    }
+
+    if (yesterdayAnsweredWords.length === 0) return;
+    startQuiz("choice", {
+      difficulty: "medium",
+      count: 30,
+      section: "taskDetail",
+      sessionId: `day2-yesterday-choice-${createSessionId()}`,
+      taskId: "day2-yesterday-choice",
+      dayId: "day2",
+      sourceWords: yesterdayAnsweredWords
+    });
+  }
+
+  function startTaskItem(task: DailyTaskItem) {
+    if (task.id === "day1-spelling") {
+      startDay1();
+      return;
+    }
+    if (task.id === "day2-yesterday-choice") {
+      startYesterdayChoiceTask();
+      return;
+    }
+    if (task.passageSlug && task.responseMode) {
+      startReadingTask(task as ReadingTask);
+    }
   }
 
   function startReadingTask(task: ReadingTask) {
     setActiveSection("reading");
     setActiveTaskId(task.id);
+    setActiveDayId(task.id.startsWith("day2-") ? "day2" : activeDayId);
     setReadingPassageSlug(task.passageSlug);
     setReadingPassage(null);
     setReadingError("");
@@ -607,6 +861,14 @@ export default function App() {
   }
 
   function restart() {
+    if (activeTaskId === "day1-spelling") {
+      startDay1();
+      return;
+    }
+    if (activeTaskId === "day2-yesterday-choice") {
+      startYesterdayChoiceTask();
+      return;
+    }
     startQuiz(mode, { difficulty: spellingDifficulty, count: questionCount, section: activeSection });
   }
 
@@ -669,7 +931,7 @@ export default function App() {
   }
 
   function clearFinishedQuiz() {
-    stopQuiz("overview");
+    stopQuiz(activeDayId ? "taskDetail" : "overview");
   }
 
   if (!username) {
@@ -767,6 +1029,12 @@ export default function App() {
                 返回单词本
               </button>
             )}
+            {activeSection === "taskDetail" && (
+              <button className="ghost-button" onClick={() => stopQuiz("taskDetail")}>
+                <ArrowLeft aria-hidden="true" />
+                返回任务详情
+              </button>
+            )}
           </>
         )}
       </aside>
@@ -778,37 +1046,60 @@ export default function App() {
               <p className="prompt-label">任务</p>
               <h2>今日任务</h2>
             </div>
-            <div className="task-card">
-              <div>
-                <span className="task-day">Day 1</span>
-                <h3>中等难度拼写自测</h3>
-                <p>{day1ProgressText}</p>
+            {dailyTasks.map((task) => (
+              <div className="task-card" key={task.id}>
+                <div>
+                  <span className="task-day">{task.label}</span>
+                  <h3>{task.title}</h3>
+                  <p>{task.id === "day1" ? day1ProgressText : getDailyTaskProgressText(task)}</p>
+                  <p>{task.description}</p>
+                </div>
+                <button className="primary-button" onClick={() => openDailyTask(task)}>
+                  <Play aria-hidden="true" />
+                  {isDailyTaskComplete(task) ? "查看任务" : "进入任务"}
+                </button>
               </div>
-              <button className="primary-button" onClick={startDay1}>
-                <Play aria-hidden="true" />
-                {day1InProgress ? "继续 Day 1" : "开始 Day 1"}
-              </button>
+            ))}
+          </section>
+        )}
+
+        {activeSection === "taskDetail" && queue.length === 0 && activeDailyTask && (
+          <section className="dashboard task-detail-dashboard">
+            <button className="ghost-button light compact-button" onClick={() => setActiveSection("overview")}>
+              <ArrowLeft aria-hidden="true" />
+              返回任务
+            </button>
+            <div className="section-heading">
+              <p className="prompt-label">{activeDailyTask.label}</p>
+              <h2>{activeDailyTask.title}</h2>
+              <p>{activeDailyTask.description}</p>
             </div>
-            <div className="task-card">
-              <div>
-                <span className="task-day">Day 2</span>
-                <h3>{readingTasks[0].title}</h3>
-                <p>{getReadingTaskProgressText(readingTasks[0])}</p>
-              </div>
-              <button className="primary-button" onClick={() => startReadingTask(readingTasks[0])}>
-                <BookOpen aria-hidden="true" />
-                {getReadingTaskButtonText(readingTasks[0])}
-              </button>
+            <div className="task-item-list">
+              {activeDailyTask.items.map((task) => {
+                const complete = isTaskItemComplete(task);
+                const disabled = task.id === "day2-yesterday-choice" && yesterdayAnsweredWords.length === 0 && !day2QuizInProgress;
+                return (
+                  <div className={complete ? "task-item-card complete" : "task-item-card"} key={task.id}>
+                    <div className="task-item-main">
+                      <span className="task-day">{task.label}</span>
+                      <h3>{task.title}</h3>
+                      <p>{getTaskItemProgressText(task)}</p>
+                    </div>
+                    <div className="task-item-actions">
+                      <span className={complete ? "status-pill complete" : "status-pill"}>{complete ? "已完成" : "未完成"}</span>
+                      <button className="primary-button" disabled={disabled} onClick={() => startTaskItem(task)}>
+                        {task.type === "quiz" ? <Eye aria-hidden="true" /> : <BookOpen aria-hidden="true" />}
+                        {getTaskItemButtonText(task)}
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
-            <div className="task-card">
-              <div>
-                <span className="task-day">{readingTasks[1].label}</span>
-                <h3>{readingTasks[1].title}</h3>
-                <p>{getReadingTaskProgressText(readingTasks[1])}</p>
-              </div>
-              <button className="primary-button" onClick={() => startReadingTask(readingTasks[1])}>
-                <BookOpen aria-hidden="true" />
-                {getReadingTaskButtonText(readingTasks[1])}
+            <div className="task-finish-panel">
+              <button className="primary-button" disabled={!isDailyTaskComplete(activeDailyTask)} onClick={() => setActiveSection("overview")}>
+                <Check aria-hidden="true" />
+                {isDailyTaskComplete(activeDailyTask) ? `${activeDailyTask.label} 完成` : "完成全部小任务后打勾"}
               </button>
             </div>
           </section>
@@ -816,12 +1107,22 @@ export default function App() {
 
         {activeSection === "reading" && (
           <section className="dashboard reading-dashboard">
+            <button className="ghost-button light compact-button" onClick={() => setActiveSection("taskDetail")}>
+              <ArrowLeft aria-hidden="true" />
+              返回任务详情
+            </button>
             <div className="section-heading">
               <p className="prompt-label">{activeReadingTask?.label ?? "阅读任务"}</p>
-              <h2>{activeReadingTask?.responseMode === "complete" ? "通读剧本" : "通读并翻译"}</h2>
+              <h2>
+                {activeReadingTask?.type === "script-reading"
+                  ? "剧本阅读"
+                  : activeReadingTask?.responseMode === "complete"
+                    ? "通读文章"
+                    : "通读并翻译"}
+              </h2>
               <p>
-                {activeReadingTask?.responseMode === "complete"
-                  ? "先把剧本读顺，重点留意下面的词组和句子里的用法。"
+                {activeReadingTask?.type === "script-reading"
+                  ? "把剧本读顺，能连起来读下来就先算完成。这里不需要写翻译。"
                   : "先读原文，再用自己的办法翻译成中文。翻译不用漂亮，但要写出每句话的大意。"}
               </p>
             </div>
@@ -864,6 +1165,11 @@ export default function App() {
                         提交翻译
                       </button>
                       {readingSubmitted && <span>已提交，后面可以继续修改再提交。</span>}
+                      {readingSubmitted && (
+                        <button className="ghost-button light" type="button" onClick={() => setActiveSection("taskDetail")}>
+                          回到 Day 2
+                        </button>
+                      )}
                     </div>
                   </form>
                 )}
@@ -874,6 +1180,11 @@ export default function App() {
                       {readingSubmitted ? "已读完" : "我读完了"}
                     </button>
                     {activeReadingSubmission && <span>完成时间：{new Date(activeReadingSubmission.submittedAt).toLocaleString()}</span>}
+                    {readingSubmitted && (
+                      <button className="ghost-button light" onClick={() => setActiveSection("taskDetail")}>
+                        回到 Day 2
+                      </button>
+                    )}
                   </div>
                 )}
               </>

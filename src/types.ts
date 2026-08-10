@@ -18,7 +18,7 @@ export type QuizMode = "choice" | "typing" | "spelling";
 
 export type SpellingDifficulty = "easy" | "medium" | "hard";
 
-export type AppSection = "overview" | "wordbook" | "spelling" | "reading" | "review";
+export type AppSection = "overview" | "taskDetail" | "wordbook" | "spelling" | "reading" | "review";
 
 export type VocabExample = {
   sentence: string;
