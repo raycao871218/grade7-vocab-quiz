@@ -177,6 +177,81 @@ def fetch_answer_records(username: str, limit: int = 200) -> list[dict[str, Any]
             return [dict(row) for row in cursor.fetchall()]
 
 
+def fetch_reading_passage(slug: str) -> dict[str, Any] | None:
+    with pool.connection() as conn:
+        with conn.cursor(row_factory=dict_row) as cursor:
+            cursor.execute(
+                """
+                SELECT slug, title, source, body, notes
+                FROM reading_passages
+                WHERE slug = %s
+                """,
+                (slug,),
+            )
+            row = cursor.fetchone()
+            return dict(row) if row else None
+
+
+def insert_reading_submission(submission: dict[str, Any]) -> dict[str, Any]:
+    username = normalize_username(submission["username"])
+    upsert_user(username)
+
+    with pool.connection() as conn:
+        with conn.cursor(row_factory=dict_row) as cursor:
+            cursor.execute(
+                """
+                INSERT INTO reading_submissions (
+                  username,
+                  task_id,
+                  passage_slug,
+                  translation_text,
+                  duration_ms
+                )
+                VALUES (%s, %s, %s, %s, %s)
+                RETURNING
+                  id,
+                  username,
+                  task_id AS "taskId",
+                  passage_slug AS "passageSlug",
+                  translation_text AS "translationText",
+                  duration_ms AS "durationMs",
+                  submitted_at AS "submittedAt"
+                """,
+                (
+                    username,
+                    submission["task_id"],
+                    submission["passage_slug"],
+                    submission["translation_text"],
+                    submission.get("duration_ms"),
+                ),
+            )
+            return dict(cursor.fetchone())
+
+
+def fetch_reading_submissions(username: str, limit: int = 100) -> list[dict[str, Any]]:
+    normalized_username = normalize_username(username)
+    with pool.connection() as conn:
+        with conn.cursor(row_factory=dict_row) as cursor:
+            cursor.execute(
+                """
+                SELECT
+                  id,
+                  username,
+                  task_id AS "taskId",
+                  passage_slug AS "passageSlug",
+                  translation_text AS "translationText",
+                  duration_ms AS "durationMs",
+                  submitted_at AS "submittedAt"
+                FROM reading_submissions
+                WHERE username = %s
+                ORDER BY submitted_at DESC, id DESC
+                LIMIT %s
+                """,
+                (normalized_username, limit),
+            )
+            return [dict(row) for row in cursor.fetchall()]
+
+
 def fetch_user_summary(username: str) -> dict[str, Any]:
     normalized_username = normalize_username(username)
     upsert_user(normalized_username)

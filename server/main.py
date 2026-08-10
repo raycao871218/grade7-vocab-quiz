@@ -12,9 +12,12 @@ from .config import get_vocab_list_slug
 from .db import (
     close_pool,
     fetch_answer_records,
+    fetch_reading_passage,
+    fetch_reading_submissions,
     fetch_user_summary,
     fetch_vocab_words,
     insert_answer_record,
+    insert_reading_submission,
     normalize_username,
     open_pool,
     upsert_user,
@@ -38,6 +41,14 @@ class AnswerRecordRequest(BaseModel):
     user_answer: str
     correct: bool
     answer_duration_ms: int | None = Field(default=None, ge=0)
+
+
+class ReadingSubmissionRequest(BaseModel):
+    username: str = Field(min_length=1, max_length=60)
+    task_id: str = Field(min_length=1, max_length=80)
+    passage_slug: str = Field(min_length=1, max_length=120)
+    translation_text: str = Field(min_length=1, max_length=12000)
+    duration_ms: int | None = Field(default=None, ge=0)
 
 
 @asynccontextmanager
@@ -96,6 +107,14 @@ def get_vocab(list_slug: str | None = None) -> dict[str, Any]:
     }
 
 
+@app.get("/api/reading-passages/{slug}")
+def get_reading_passage(slug: str) -> dict[str, Any]:
+    passage = fetch_reading_passage(slug)
+    if not passage:
+        raise HTTPException(status_code=404, detail=f"没有找到阅读文章：{slug}")
+    return {"passage": passage}
+
+
 @app.post("/api/answers")
 def save_answer(payload: AnswerRecordRequest) -> dict[str, Any]:
     username = normalize_username(payload.username)
@@ -125,6 +144,30 @@ def save_answer(payload: AnswerRecordRequest) -> dict[str, Any]:
 def get_records(username: str, limit: int = 200) -> dict[str, Any]:
     safe_limit = min(max(limit, 1), 500)
     return {"records": fetch_answer_records(username, safe_limit)}
+
+
+@app.post("/api/reading-submissions")
+def save_reading_submission(payload: ReadingSubmissionRequest) -> dict[str, Any]:
+    username = normalize_username(payload.username)
+    if not username:
+        raise HTTPException(status_code=400, detail="用户名不能为空")
+
+    submission = insert_reading_submission(
+        {
+            "username": username,
+            "task_id": payload.task_id,
+            "passage_slug": payload.passage_slug,
+            "translation_text": payload.translation_text,
+            "duration_ms": payload.duration_ms,
+        }
+    )
+    return {"submission": submission}
+
+
+@app.get("/api/users/{username}/reading-submissions")
+def get_reading_submissions(username: str, limit: int = 100) -> dict[str, Any]:
+    safe_limit = min(max(limit, 1), 200)
+    return {"submissions": fetch_reading_submissions(username, safe_limit)}
 
 
 @app.get("/api/users/{username}/summary")

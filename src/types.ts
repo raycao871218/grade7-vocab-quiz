@@ -10,7 +10,7 @@ export type QuizMode = "choice" | "typing" | "spelling";
 
 export type SpellingDifficulty = "easy" | "medium" | "hard";
 
-export type AppSection = "overview" | "wordbook" | "spelling" | "review";
+export type AppSection = "overview" | "wordbook" | "spelling" | "reading" | "review";
 
 export type VocabExample = {
   sentence: string;
@@ -49,4 +49,22 @@ export type UserSummary = {
   lastAnsweredAt: string | null;
   accuracy: number;
   nextDay: number;
+};
+
+export type ReadingPassage = {
+  slug: string;
+  title: string;
+  source: string;
+  body: string;
+  notes: string;
+};
+
+export type ReadingSubmission = {
+  id: number;
+  username: string;
+  taskId: string;
+  passageSlug: string;
+  translationText: string;
+  durationMs: number | null;
+  submittedAt: string;
 };

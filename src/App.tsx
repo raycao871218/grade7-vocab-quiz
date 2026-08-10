@@ -18,6 +18,8 @@ import type {
   AnswerRecord,
   AppSection,
   QuizMode,
+  ReadingPassage,
+  ReadingSubmission,
   SavedAnswerRecord,
   SpellingDifficulty,
   VocabItem
@@ -31,6 +33,14 @@ type VocabResponse = {
 
 type ReviewResponse = {
   records: SavedAnswerRecord[];
+};
+
+type ReadingPassageResponse = {
+  passage: ReadingPassage;
+};
+
+type ReadingSubmissionsResponse = {
+  submissions: ReadingSubmission[];
 };
 
 type PersistedQuizState = {
@@ -53,6 +63,7 @@ const sectionLabels: Record<AppSection, string> = {
   overview: "任务",
   wordbook: "单词本",
   spelling: "拼写自测",
+  reading: "阅读任务",
   review: "Review"
 };
 
@@ -69,7 +80,9 @@ const difficultyLabels: Record<SpellingDifficulty, string> = {
 };
 
 const navSections: AppSection[] = ["overview", "wordbook", "review"];
-const validSections: AppSection[] = ["overview", "wordbook", "review"];
+const validSections: AppSection[] = ["overview", "wordbook", "reading", "review"];
+const DAY2_PASSAGE_SLUG = "north-wind-sun-original";
+const READING_STATE_KEY = "grade7-vocab-reading-state";
 
 function shuffleArray<T>(items: T[]): T[] {
   return [...items].sort(() => Math.random() - 0.5);
@@ -125,6 +138,10 @@ function getQuizStateKey(currentUsername: string): string {
   return `${QUIZ_STATE_KEY}:${currentUsername}`;
 }
 
+function getReadingStateKey(currentUsername: string, taskId: string): string {
+  return `${READING_STATE_KEY}:${currentUsername}:${taskId}`;
+}
+
 function formatAnswerDuration(durationMs: number | null): string {
   if (durationMs === null) return "未记录用时";
   if (durationMs < 1000) return "用时不到 1 秒";
@@ -159,7 +176,14 @@ export default function App() {
   const [feedback, setFeedback] = useState<"idle" | "right" | "wrong">("idle");
   const [records, setRecords] = useState<AnswerRecord[]>([]);
   const [savedRecords, setSavedRecords] = useState<SavedAnswerRecord[]>([]);
+  const [readingPassageSlug, setReadingPassageSlug] = useState("");
+  const [readingPassage, setReadingPassage] = useState<ReadingPassage | null>(null);
+  const [readingError, setReadingError] = useState("");
+  const [translationText, setTranslationText] = useState("");
+  const [readingSubmissions, setReadingSubmissions] = useState<ReadingSubmission[]>([]);
+  const [readingSubmitted, setReadingSubmitted] = useState(false);
   const questionStartedAt = useRef<number | null>(null);
+  const readingStartedAt = useRef<number | null>(null);
 
   useEffect(() => {
     fetch("/api/vocab")
@@ -208,6 +232,7 @@ export default function App() {
     if (!username) return;
     localStorage.setItem(USERNAME_KEY, username);
     setSavedRecords([]);
+    setReadingSubmissions([]);
     void refreshUserData(username);
   }, [username]);
 
@@ -239,10 +264,42 @@ export default function App() {
   const day1ProgressText = day1InProgress ? `已做 ${Math.min(index, queue.length)} / ${queue.length} 题` : "中等难度 · 100 个高频词";
   const showQuizProgress = queue.length > 0 && activeSection !== "overview" && activeSection !== "review";
   const showTaskSection = activeSection === "overview" || (activeSection === "spelling" && queue.length === 0);
+  const day2Submission = readingSubmissions.find((submission) => submission.taskId === "day2");
+  const day2ProgressText = day2Submission
+    ? `已提交翻译 · ${new Date(day2Submission.submittedAt).toLocaleString()}`
+    : "通读原版文章，并用自己的话翻译成中文";
 
   useEffect(() => {
     questionStartedAt.current = current ? performance.now() : null;
   }, [current?.id, index, sessionId]);
+
+  useEffect(() => {
+    if (!readingPassageSlug) return;
+    setReadingError("");
+    fetch(`/api/reading-passages/${encodeURIComponent(readingPassageSlug)}`)
+      .then(async (response) => {
+        const data = (await response.json()) as ReadingPassageResponse;
+        if (!response.ok) throw new Error("阅读文章没有加载成功");
+        setReadingPassage(data.passage);
+      })
+      .catch((caught) => {
+        setReadingError(caught instanceof Error ? caught.message : "阅读文章没有加载成功");
+      });
+  }, [readingPassageSlug]);
+
+  useEffect(() => {
+    if (!username || activeSection !== "reading" || activeTaskId !== "day2") return;
+    localStorage.setItem(getReadingStateKey(username, "day2"), translationText);
+  }, [activeSection, activeTaskId, translationText, username]);
+
+  useEffect(() => {
+    if (!username || activeSection !== "reading") return;
+    setActiveTaskId((currentTaskId) => currentTaskId ?? "day2");
+    setReadingPassageSlug((currentSlug) => currentSlug || DAY2_PASSAGE_SLUG);
+    setTranslationText((currentText) => currentText || localStorage.getItem(getReadingStateKey(username, "day2")) || "");
+    setReadingSubmitted(Boolean(day2Submission));
+    if (readingStartedAt.current === null) readingStartedAt.current = performance.now();
+  }, [activeSection, day2Submission, username]);
 
   const choices = useMemo(() => {
     if (!current) return [];
@@ -287,10 +344,17 @@ export default function App() {
 
   async function refreshUserData(nextUsername = username) {
     if (!nextUsername) return;
-    const recordsResponse = await fetch(`/api/users/${encodeURIComponent(nextUsername)}/records?limit=500`);
+    const [recordsResponse, readingResponse] = await Promise.all([
+      fetch(`/api/users/${encodeURIComponent(nextUsername)}/records?limit=500`),
+      fetch(`/api/users/${encodeURIComponent(nextUsername)}/reading-submissions?limit=100`)
+    ]);
     if (recordsResponse.ok) {
       const data = (await recordsResponse.json()) as ReviewResponse;
       setSavedRecords(data.records);
+    }
+    if (readingResponse.ok) {
+      const data = (await readingResponse.json()) as ReadingSubmissionsResponse;
+      setReadingSubmissions(data.submissions);
     }
   }
 
@@ -312,6 +376,10 @@ export default function App() {
     setRecords([]);
     setSavedRecords([]);
     setActiveTaskId(undefined);
+    setReadingPassageSlug("");
+    setReadingPassage(null);
+    setTranslationText("");
+    setReadingSubmitted(false);
     localStorage.removeItem(QUIZ_STATE_KEY);
     setUsername(nextUsername);
   }
@@ -326,6 +394,11 @@ export default function App() {
     setIndex(0);
     setRecords([]);
     setSavedRecords([]);
+    setReadingSubmissions([]);
+    setReadingPassageSlug("");
+    setReadingPassage(null);
+    setTranslationText("");
+    setReadingSubmitted(false);
     localStorage.removeItem(USERNAME_KEY);
     localStorage.removeItem(QUIZ_STATE_KEY);
   }
@@ -339,7 +412,7 @@ export default function App() {
   }
 
   function isNavActive(section: AppSection) {
-    return activeSection === section || (section === "overview" && activeSection === "spelling");
+    return activeSection === section || (section === "overview" && (activeSection === "spelling" || activeSection === "reading"));
   }
 
   function startQuiz(
@@ -388,6 +461,48 @@ export default function App() {
       sessionId: `day1-${createSessionId()}`,
       taskId: "day1"
     });
+  }
+
+  function startDay2() {
+    setActiveSection("reading");
+    setActiveTaskId("day2");
+    setReadingPassageSlug(DAY2_PASSAGE_SLUG);
+    setReadingPassage(null);
+    setReadingError("");
+    setReadingSubmitted(Boolean(day2Submission));
+    setQueue([]);
+    setIndex(0);
+    setSelected("");
+    setTyped("");
+    setFeedback("idle");
+    const savedTranslation = username ? localStorage.getItem(getReadingStateKey(username, "day2")) : null;
+    setTranslationText(savedTranslation ?? day2Submission?.translationText ?? "");
+    readingStartedAt.current = performance.now();
+  }
+
+  async function submitReadingTask(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!username || !readingPassageSlug || translationText.trim().length === 0) return;
+    const durationMs =
+      readingStartedAt.current === null ? null : Math.max(0, Math.round(performance.now() - readingStartedAt.current));
+    const response = await fetch("/api/reading-submissions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        username,
+        task_id: "day2",
+        passage_slug: readingPassageSlug,
+        translation_text: translationText.trim(),
+        duration_ms: durationMs
+      })
+    });
+    if (!response.ok) {
+      setReadingError("翻译没有提交成功，请再试一次。");
+      return;
+    }
+    if (username) localStorage.removeItem(getReadingStateKey(username, "day2"));
+    setReadingSubmitted(true);
+    await refreshUserData(username);
   }
 
   function restart() {
@@ -560,6 +675,71 @@ export default function App() {
                 {day1InProgress ? "继续 Day 1" : "开始 Day 1"}
               </button>
             </div>
+            <div className="task-card">
+              <div>
+                <span className="task-day">Day 2</span>
+                <h3>原版阅读：The North Wind & the Sun</h3>
+                <p>{day2ProgressText}</p>
+              </div>
+              <button className="primary-button" onClick={startDay2}>
+                <BookOpen aria-hidden="true" />
+                {day2Submission ? "查看 Day 2" : "开始 Day 2"}
+              </button>
+            </div>
+            <div className="task-card muted">
+              <div>
+                <span className="task-day">Peppa Pig</span>
+                <h3>小猪佩奇第一集原文</h3>
+                <p>等你提供原文后，我会录入为后续阅读任务。</p>
+              </div>
+              <button className="ghost-button light" disabled>
+                待录入
+              </button>
+            </div>
+          </section>
+        )}
+
+        {activeSection === "reading" && (
+          <section className="dashboard reading-dashboard">
+            <div className="section-heading">
+              <p className="prompt-label">Day 2</p>
+              <h2>通读并翻译</h2>
+              <p>先读原文，再用自己的办法翻译成中文。翻译不用漂亮，但要写出每句话的大意。</p>
+            </div>
+            {readingError && <p className="inline-error">{readingError}</p>}
+            {!readingPassage && !readingError && (
+              <section className="loading-panel">
+                <ListChecks aria-hidden="true" />
+                <h1>正在加载文章</h1>
+              </section>
+            )}
+            {readingPassage && (
+              <>
+                <article className="reading-passage">
+                  <p className="prompt-label">{readingPassage.source}</p>
+                  <h3>{readingPassage.title}</h3>
+                  {readingPassage.body.split("\n\n").map((paragraph) => (
+                    <p key={paragraph}>{paragraph}</p>
+                  ))}
+                </article>
+                <form className="translation-form" onSubmit={submitReadingTask}>
+                  <label htmlFor="translation-text">我的中文翻译</label>
+                  <textarea
+                    id="translation-text"
+                    onChange={(event) => setTranslationText(event.target.value)}
+                    placeholder="把文章翻译成中文，可以先按自己的理解写。"
+                    value={translationText}
+                  />
+                  <div className="translation-actions">
+                    <button className="primary-button" disabled={translationText.trim().length === 0}>
+                      <Check aria-hidden="true" />
+                      提交翻译
+                    </button>
+                    {readingSubmitted && <span>已提交，后面可以继续修改再提交。</span>}
+                  </div>
+                </form>
+              </>
+            )}
           </section>
         )}
 

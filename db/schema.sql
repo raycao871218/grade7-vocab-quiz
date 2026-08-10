@@ -95,3 +95,55 @@ CREATE INDEX IF NOT EXISTS answer_records_username_answered_idx
 
 CREATE INDEX IF NOT EXISTS answer_records_username_correct_idx
   ON answer_records (username, correct, answered_at DESC);
+
+CREATE TABLE IF NOT EXISTS reading_passages (
+  id BIGSERIAL PRIMARY KEY,
+  slug TEXT NOT NULL UNIQUE,
+  title TEXT NOT NULL,
+  source TEXT NOT NULL DEFAULT '',
+  body TEXT NOT NULL,
+  notes TEXT NOT NULL DEFAULT '',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS reading_submissions (
+  id BIGSERIAL PRIMARY KEY,
+  username TEXT NOT NULL REFERENCES app_users(username) ON DELETE CASCADE,
+  task_id TEXT NOT NULL,
+  passage_slug TEXT NOT NULL REFERENCES reading_passages(slug) ON DELETE RESTRICT,
+  translation_text TEXT NOT NULL,
+  duration_ms INTEGER,
+  submitted_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS reading_submissions_username_submitted_idx
+  ON reading_submissions (username, submitted_at DESC);
+
+CREATE INDEX IF NOT EXISTS reading_submissions_username_task_idx
+  ON reading_submissions (username, task_id, submitted_at DESC);
+
+INSERT INTO reading_passages (slug, title, source, body, notes)
+VALUES (
+  'north-wind-sun-original',
+  'The North Wind & the Sun',
+  'Library of Congress Aesop Fables',
+  $$The North Wind and the Sun had a quarrel about which of them was the stronger. While they were disputing with much heat and bluster, a Traveler passed along the road wrapped in a cloak.
+
+"Let us agree," said the Sun, "that he is the stronger who can strip that Traveler of his cloak."
+
+"Very well," growled the North Wind, and at once sent a cold, howling blast against the Traveler.
+
+With the first gust of wind the ends of the cloak whipped about the Traveler's body. But he immediately wrapped it closely around him, and the harder the Wind blew, the tighter he held it to him. The North Wind tore angrily at the cloak, but all his efforts were in vain.
+
+Then the Sun began to shine. At first his beams were gentle, and in the pleasant warmth after the bitter cold of the North Wind, the Traveler unfastened his cloak and let it hang loosely from his shoulders. The Sun's rays grew warmer and warmer. The man took off his cap and mopped his brow. At last he became so heated that he pulled off his cloak, and, to escape the blazing sunshine, threw himself down in the welcome shade of a tree by the roadside.
+
+Gentleness and kind persuasion win where force and bluster fail.$$,
+  'Original public-domain Aesop version for Day 2 reading and translation.'
+)
+ON CONFLICT (slug) DO UPDATE
+  SET title = EXCLUDED.title,
+      source = EXCLUDED.source,
+      body = EXCLUDED.body,
+      notes = EXCLUDED.notes,
+      updated_at = now();

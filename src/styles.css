@@ -363,6 +363,15 @@ p {
   line-height: 1.5;
 }
 
+.task-card.muted {
+  background: #f7f1e8;
+}
+
+.task-card.muted h3,
+.task-card.muted p {
+  color: #7d756a;
+}
+
 .task-day {
   color: #c75f4a;
   font-weight: 900;
@@ -451,6 +460,73 @@ p {
   padding: 12px 14px;
   background: #fffdf8;
   color: #17201a;
+}
+
+.reading-dashboard {
+  width: min(820px, 100%);
+}
+
+.reading-passage {
+  border: 1px solid #dfd6c7;
+  border-radius: 8px;
+  padding: 18px;
+  background: #fffdf8;
+}
+
+.reading-passage h3 {
+  margin: 0 0 16px;
+  color: #17201a;
+  font-size: 1.45rem;
+}
+
+.reading-passage p {
+  color: #24352c;
+  font-size: 1rem;
+  line-height: 1.75;
+}
+
+.reading-passage p:last-child {
+  margin-bottom: 0;
+}
+
+.translation-form {
+  display: grid;
+  gap: 10px;
+}
+
+.translation-form label {
+  color: #7d6241;
+  font-weight: 800;
+}
+
+.translation-form textarea {
+  width: 100%;
+  min-height: 220px;
+  resize: vertical;
+  border: 1px solid #d4c8b6;
+  border-radius: 8px;
+  padding: 14px 16px;
+  background: #fffdf8;
+  color: #17201a;
+  line-height: 1.6;
+}
+
+.translation-actions {
+  display: grid;
+  gap: 10px;
+}
+
+.translation-actions span {
+  color: #5b6c5d;
+  font-size: 0.9rem;
+}
+
+.inline-error {
+  border: 1px solid #e5b6aa;
+  border-radius: 8px;
+  padding: 12px 14px;
+  background: #f4ddd6;
+  color: #823425;
 }
 
 .review-list {
@@ -625,6 +701,12 @@ p {
   transform: none;
 }
 
+.ghost-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+  transform: none;
+}
+
 .feedback {
   display: flex;
   align-items: flex-start;
@@ -749,6 +831,11 @@ p {
   .feedback {
     align-items: center;
     flex-direction: row;
+  }
+
+  .translation-actions {
+    align-items: center;
+    grid-template-columns: auto 1fr;
   }
 
   .feedback .primary-button {
