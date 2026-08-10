@@ -10,6 +10,7 @@
     "db:migrate": "node scripts/db-migrate.mjs",
     "db:seed": "node scripts/seed-vocab.mjs",
     "db:import:term": "node scripts/import-grade7-term-vocab.mjs",
+    "db:build:all": "node scripts/build-grade7-all-vocab.mjs",
     "preview": "vite preview --host 127.0.0.1",
     "lint": "tsc -b --noEmit"
   },

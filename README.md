@@ -84,7 +84,7 @@ DB_PORT=5432
 DB_NAME=grade7
 DB_USER=grade7
 DB_PASSWORD=change-me
-VOCAB_LIST_SLUG=grade7-upper-renjiao
+VOCAB_LIST_SLUG=grade7-all-renjiao
 API_PROXY_TARGET=http://127.0.0.1:8000
 VOCAB_SOURCE_PATH=/absolute/path/to/vocab.md
 GRADE7_TERM_SOURCE_PATH=/absolute/path/to/grade7-term-vocab.txt
@@ -93,7 +93,7 @@ GRADE7_TERM_BLOCK=upper
 
 `VOCAB_SOURCE_PATH` 只用于 `npm run db:seed` 从现有 Markdown 词表做一次性导入。应用运行时是：
 
-`GRADE7_TERM_SOURCE_PATH` 可用于 `node scripts/import-grade7-term-vocab.mjs` 导入教材 A-Z 词表，词表会记录年级和上/下学期。`GRADE7_TERM_BLOCK` 可设为 `upper` 或 `lower`。
+`GRADE7_TERM_SOURCE_PATH` 可用于 `node scripts/import-grade7-term-vocab.mjs` 导入教材 A-Z 词表，词表会记录年级和上/下学期。`GRADE7_TERM_BLOCK` 可设为 `upper` 或 `lower`。上、下学期都导入后，运行 `npm run db:build:all` 生成全年合并词表。
 
 ```text
 React 前端 -> FastAPI /api/vocab -> PostgreSQL
@@ -106,7 +106,7 @@ React 前端 -> FastAPI /api/vocab -> PostgreSQL
 - `GET /api/health`：健康检查。
 - `POST /api/login`：按用户名创建或更新用户。
 - `GET /api/vocab`：读取 `.env` 中 `VOCAB_LIST_SLUG` 指定的词表。
-- `GET /api/vocab?list_slug=grade7-upper-renjiao`：读取指定词表。
+- `GET /api/vocab?list_slug=grade7-all-renjiao`：读取指定词表。
 - `POST /api/answers`：保存单题答题记录。
 - `GET /api/users/{username}/records`：查询 Review 记录。
 - `GET /api/users/{username}/summary`：查询总览统计。
