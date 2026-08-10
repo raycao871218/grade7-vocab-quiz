@@ -210,6 +210,7 @@ export default function App() {
   const [mode, setMode] = useState<QuizMode>("spelling");
   const [spellingDifficulty, setSpellingDifficulty] = useState<SpellingDifficulty>("medium");
   const [questionCount, setQuestionCount] = useState(30);
+  const [wordbookQuestionCount, setWordbookQuestionCount] = useState(30);
   const [queue, setQueue] = useState<VocabItem[]>([]);
   const [index, setIndex] = useState(0);
   const [sessionId, setSessionId] = useState(createSessionId);
@@ -313,6 +314,11 @@ export default function App() {
   const activeReadingSubmission = activeReadingTask
     ? readingSubmissions.find((submission) => submission.taskId === activeReadingTask.id)
     : undefined;
+  const wordbookCountOptions = useMemo(() => {
+    const options = [10, 20, 30, 50, 100, allWords.length].filter((count) => count > 0 && count <= allWords.length);
+    return [...new Set(options)].sort((a, b) => a - b);
+  }, [allWords.length]);
+  const activeWordbookQuestionCount = Math.min(wordbookQuestionCount, allWords.length);
 
   useEffect(() => {
     questionStartedAt.current = current ? performance.now() : null;
@@ -896,22 +902,36 @@ export default function App() {
                 ))}
               </div>
             </div>
+            <div className="difficulty-panel light-panel">
+              <p>题数</p>
+              <div className="count-grid" aria-label="单词本题数">
+                {wordbookCountOptions.map((count) => (
+                  <button
+                    className={activeWordbookQuestionCount === count ? "difficulty-button active" : "difficulty-button"}
+                    key={count}
+                    onClick={() => setWordbookQuestionCount(count)}
+                  >
+                    {count === allWords.length ? `全部 ${count}` : `${count} 题`}
+                  </button>
+                ))}
+              </div>
+            </div>
             <div className="tool-grid">
               <button
                 className="tool-card"
-                onClick={() => startQuiz("typing", { difficulty: spellingDifficulty, count: allWords.length, section: "wordbook" })}
+                onClick={() => startQuiz("typing", { difficulty: spellingDifficulty, count: activeWordbookQuestionCount, section: "wordbook" })}
               >
                 <Keyboard aria-hidden="true" />
                 <strong>中译英</strong>
-                <span>看中文，输入英文。简单难度会给一点提示。</span>
+                <span>看中文，输入英文。本轮 {activeWordbookQuestionCount} 题。</span>
               </button>
               <button
                 className="tool-card"
-                onClick={() => startQuiz("choice", { difficulty: spellingDifficulty, count: allWords.length, section: "wordbook" })}
+                onClick={() => startQuiz("choice", { difficulty: spellingDifficulty, count: activeWordbookQuestionCount, section: "wordbook" })}
               >
                 <Eye aria-hidden="true" />
                 <strong>英译中</strong>
-                <span>看英文，选择中文意思。</span>
+                <span>看英文，选择中文意思。本轮 {activeWordbookQuestionCount} 题。</span>
               </button>
             </div>
           </section>

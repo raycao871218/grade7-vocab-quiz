@@ -161,6 +161,12 @@ p {
   gap: 6px;
 }
 
+.count-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
 .difficulty-button {
   min-height: 38px;
   background: #2b4035;
