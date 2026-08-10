@@ -40,4 +40,4 @@ def get_database_kwargs() -> dict[str, object]:
 
 
 def get_vocab_list_slug() -> str:
-    return get_env().get("VOCAB_LIST_SLUG", "grade7-renjiao-placement")
+    return get_env().get("VOCAB_LIST_SLUG", "grade7-upper-renjiao")

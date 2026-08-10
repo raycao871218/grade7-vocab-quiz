@@ -84,12 +84,15 @@ DB_PORT=5432
 DB_NAME=grade7
 DB_USER=grade7
 DB_PASSWORD=change-me
-VOCAB_LIST_SLUG=grade7-renjiao-placement
+VOCAB_LIST_SLUG=grade7-upper-renjiao
 API_PROXY_TARGET=http://127.0.0.1:8000
 VOCAB_SOURCE_PATH=/absolute/path/to/vocab.md
+GRADE7_TERM_SOURCE_PATH=/absolute/path/to/grade7-term-vocab.txt
 ```
 
 `VOCAB_SOURCE_PATH` 只用于 `npm run db:seed` 从现有 Markdown 词表做一次性导入。应用运行时是：
+
+`GRADE7_TERM_SOURCE_PATH` 可用于 `node scripts/import-grade7-term-vocab.mjs` 导入教材 A-Z 词表，词表会记录年级和上/下学期。
 
 ```text
 React 前端 -> FastAPI /api/vocab -> PostgreSQL
@@ -102,14 +105,14 @@ React 前端 -> FastAPI /api/vocab -> PostgreSQL
 - `GET /api/health`：健康检查。
 - `POST /api/login`：按用户名创建或更新用户。
 - `GET /api/vocab`：读取 `.env` 中 `VOCAB_LIST_SLUG` 指定的词表。
-- `GET /api/vocab?list_slug=grade7-renjiao-placement`：读取指定词表。
+- `GET /api/vocab?list_slug=grade7-upper-renjiao`：读取指定词表。
 - `POST /api/answers`：保存单题答题记录。
 - `GET /api/users/{username}/records`：查询 Review 记录。
 - `GET /api/users/{username}/summary`：查询总览统计。
 
 ## 数据结构
 
-- `vocab_lists`：词表，比如七年级摸底词表、八年级拓展词表。
+- `vocab_lists`：词表，比如七年级上学期、七年级下学期、八年级拓展词表，并记录年级和学期。
 - `vocab_words`：标准英文词条，按规范化英文去重。
 - `vocab_list_items`：词条在某个词表里的顺序、是否加测。
 - `vocab_meanings`：释义，当前使用 `zh-CN`。

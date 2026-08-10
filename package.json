@@ -9,6 +9,7 @@
     "build": "tsc -b && vite build",
     "db:migrate": "node scripts/db-migrate.mjs",
     "db:seed": "node scripts/seed-vocab.mjs",
+    "db:import:term": "node scripts/import-grade7-term-vocab.mjs",
     "preview": "vite preview --host 127.0.0.1",
     "lint": "tsc -b --noEmit"
   },

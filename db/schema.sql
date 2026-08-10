@@ -3,9 +3,21 @@ CREATE TABLE IF NOT EXISTS vocab_lists (
   slug TEXT NOT NULL UNIQUE,
   title TEXT NOT NULL,
   description TEXT NOT NULL DEFAULT '',
+  grade_level INTEGER,
+  semester TEXT NOT NULL DEFAULT '',
+  source_label TEXT NOT NULL DEFAULT '',
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+ALTER TABLE vocab_lists
+  ADD COLUMN IF NOT EXISTS grade_level INTEGER;
+
+ALTER TABLE vocab_lists
+  ADD COLUMN IF NOT EXISTS semester TEXT NOT NULL DEFAULT '';
+
+ALTER TABLE vocab_lists
+  ADD COLUMN IF NOT EXISTS source_label TEXT NOT NULL DEFAULT '';
 
 CREATE TABLE IF NOT EXISTS vocab_words (
   id BIGSERIAL PRIMARY KEY,
