@@ -88,11 +88,12 @@ VOCAB_LIST_SLUG=grade7-upper-renjiao
 API_PROXY_TARGET=http://127.0.0.1:8000
 VOCAB_SOURCE_PATH=/absolute/path/to/vocab.md
 GRADE7_TERM_SOURCE_PATH=/absolute/path/to/grade7-term-vocab.txt
+GRADE7_TERM_BLOCK=upper
 ```
 
 `VOCAB_SOURCE_PATH` 只用于 `npm run db:seed` 从现有 Markdown 词表做一次性导入。应用运行时是：
 
-`GRADE7_TERM_SOURCE_PATH` 可用于 `node scripts/import-grade7-term-vocab.mjs` 导入教材 A-Z 词表，词表会记录年级和上/下学期。
+`GRADE7_TERM_SOURCE_PATH` 可用于 `node scripts/import-grade7-term-vocab.mjs` 导入教材 A-Z 词表，词表会记录年级和上/下学期。`GRADE7_TERM_BLOCK` 可设为 `upper` 或 `lower`。
 
 ```text
 React 前端 -> FastAPI /api/vocab -> PostgreSQL

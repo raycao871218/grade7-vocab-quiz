@@ -2,9 +2,24 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { createPool, normalizeEnglish } from "./db.mjs";
 
-const DEFAULT_LIST_SLUG = "grade7-upper-renjiao";
-const DEFAULT_LIST_TITLE = "人教版七年级上学期完整词汇";
-const DEFAULT_DESCRIPTION = "七年级上学期 Vocabulary A-Z 完整词汇，按教材页码导入。";
+const TERM_BLOCKS = {
+  upper: {
+    listSlug: "grade7-upper-renjiao",
+    listTitle: "人教版七年级上学期完整词汇",
+    description: "七年级上学期 Vocabulary A-Z 完整词汇，按教材页码导入。",
+    semester: "上学期",
+    sourceLabel: "用户提供的七年级上学期词表"
+  },
+  lower: {
+    listSlug: "grade7-lower-renjiao",
+    listTitle: "人教版七年级下学期完整词汇",
+    description: "七年级下学期 Vocabulary A-Z 完整词汇，按教材页码导入。",
+    semester: "下学期",
+    sourceLabel: "用户提供的七年级下学期词表"
+  }
+};
+
+const SECOND_BOOK_MARKER = "\n\nA\na few ";
 
 function readEnvFile(raw) {
   return Object.fromEntries(
@@ -36,9 +51,12 @@ function isNoiseLine(line) {
   );
 }
 
-function sliceUpperTerm(raw) {
-  const secondBookMarker = "\n\nA\na few ";
-  const markerIndex = raw.indexOf(secondBookMarker);
+function selectTermBlock(raw, blockName) {
+  const markerIndex = raw.indexOf(SECOND_BOOK_MARKER);
+  if (blockName === "all") return raw;
+  if (blockName === "lower") {
+    return markerIndex > 0 ? raw.slice(markerIndex + 2) : "";
+  }
   return markerIndex > 0 ? raw.slice(0, markerIndex) : raw;
 }
 
@@ -105,9 +123,9 @@ function parseEntry(entry) {
   };
 }
 
-function parseVocabulary(raw) {
-  const upperTerm = sliceUpperTerm(raw);
-  const rows = collectEntries(upperTerm).map(parseEntry).filter(Boolean);
+function parseVocabulary(raw, blockName) {
+  const termText = selectTermBlock(raw, blockName);
+  const rows = collectEntries(termText).map(parseEntry).filter(Boolean);
   const uniqueRows = new Map();
 
   for (const row of rows) {
@@ -121,19 +139,21 @@ function parseVocabulary(raw) {
 const envFile = await fs.readFile(".env", "utf-8").catch(() => "");
 const env = { ...readEnvFile(envFile), ...process.env };
 const sourcePath = env.GRADE7_TERM_SOURCE_PATH ?? process.argv[2];
+const blockName = env.GRADE7_TERM_BLOCK ?? "upper";
+const blockDefaults = TERM_BLOCKS[blockName] ?? TERM_BLOCKS.upper;
 
 if (!sourcePath) {
   throw new Error("Missing source path. Set GRADE7_TERM_SOURCE_PATH or pass a text file path.");
 }
 
-const listSlug = env.GRADE7_TERM_LIST_SLUG ?? DEFAULT_LIST_SLUG;
-const listTitle = env.GRADE7_TERM_LIST_TITLE ?? DEFAULT_LIST_TITLE;
-const description = env.GRADE7_TERM_DESCRIPTION ?? DEFAULT_DESCRIPTION;
+const listSlug = env.GRADE7_TERM_LIST_SLUG ?? blockDefaults.listSlug;
+const listTitle = env.GRADE7_TERM_LIST_TITLE ?? blockDefaults.listTitle;
+const description = env.GRADE7_TERM_DESCRIPTION ?? blockDefaults.description;
 const gradeLevel = Number(env.GRADE7_TERM_GRADE_LEVEL ?? 7);
-const semester = env.GRADE7_TERM_SEMESTER ?? "上学期";
-const sourceLabel = env.GRADE7_TERM_SOURCE_LABEL ?? "用户提供的七年级上学期词表";
+const semester = env.GRADE7_TERM_SEMESTER ?? blockDefaults.semester;
+const sourceLabel = env.GRADE7_TERM_SOURCE_LABEL ?? blockDefaults.sourceLabel;
 const raw = await fs.readFile(path.resolve(sourcePath), "utf-8");
-const words = parseVocabulary(raw);
+const words = parseVocabulary(raw, blockName);
 
 if (words.length === 0) {
   throw new Error("No vocabulary entries found in source text.");
