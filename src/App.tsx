@@ -96,6 +96,9 @@ const ACTIVE_READING_TASK_KEY = "grade7-vocab-active-reading-task";
 const DAY2_CHOICE_COUNT = 30;
 const DAY2_REVIEW_WORD_COUNT = 21;
 const DAY2_NEW_WORD_COUNT = 9;
+const DAY3_CHOICE_COUNT = 30;
+const DAY3_REVIEW_WORD_COUNT = 21;
+const DAY3_NEW_WORD_COUNT = 9;
 type TaskItemType = "quiz" | "script-reading" | "translation";
 
 type DailyTaskItem = {
@@ -110,7 +113,7 @@ type DailyTaskItem = {
   difficulty?: SpellingDifficulty;
   count?: number;
   sessionPrefix?: string;
-  source?: "allWords" | "yesterdayAnswers";
+  source?: "allWords" | "yesterdayAnswers" | "day2ChoiceAnswers";
 };
 
 type DailyTask = {
@@ -184,10 +187,41 @@ const dailyTasks: DailyTask[] = [
   {
     id: "day3",
     label: "Day 3",
-    title: "任务待录入",
-    description: "明天早上 6 点开放，内容可以先放这里。",
+    title: "熟读 + Day2 单词复习",
+    description: "继续熟读 Muddy Puddles 和 The North Wind and the Sun，再复习 Day2 的选择题词。",
     unlockAt: "2026-08-11T06:00:00+08:00",
-    items: []
+    items: [
+      {
+        id: "day3-muddy-read",
+        type: "script-reading",
+        label: "第一项",
+        title: "继续熟读 Muddy Puddles",
+        description: "把第一集剧本继续读顺，重点留意熟悉句子的表达。",
+        passageSlug: "peppa-pig-muddy-puddles",
+        responseMode: "complete"
+      },
+      {
+        id: "day3-north-read",
+        type: "script-reading",
+        label: "第二项",
+        title: "熟读 The North Wind and the Sun",
+        description: "不需要翻译，目标是把文章读熟。",
+        passageSlug: "north-wind-sun-original",
+        responseMode: "complete"
+      },
+      {
+        id: "day3-day2-choice",
+        type: "quiz",
+        label: "第三项",
+        title: "英译中选择题 30 个",
+        description: "21 个来自 Day2 选择题，9 个额外新词。",
+        mode: "choice",
+        difficulty: "medium",
+        count: DAY3_CHOICE_COUNT,
+        sessionPrefix: "day3-day2-choice-",
+        source: "day2ChoiceAnswers"
+      }
+    ]
   }
 ] as const satisfies DailyTask[];
 
@@ -297,6 +331,24 @@ function getYesterdayDateKey(): string {
   const yesterday = new Date();
   yesterday.setDate(yesterday.getDate() - 1);
   return toLocalDateKey(yesterday);
+}
+
+function getLatestRecordsBySessionPrefix(records: SavedAnswerRecord[], prefix: string): SavedAnswerRecord[] {
+  const groups = new Map<string, SavedAnswerRecord[]>();
+  records
+    .filter((record) => record.session_id.startsWith(prefix))
+    .forEach((record) => {
+      const group = groups.get(record.session_id) ?? [];
+      group.push(record);
+      groups.set(record.session_id, group);
+    });
+
+  return Array.from(groups.values())
+    .sort((left, right) => {
+      const leftLatest = Math.max(...left.map((record) => new Date(record.answeredAt).getTime()));
+      const rightLatest = Math.max(...right.map((record) => new Date(record.answeredAt).getTime()));
+      return rightLatest - leftLatest;
+    })[0] ?? [];
 }
 
 function formatUnlockTime(unlockAt: string): string {
@@ -456,6 +508,7 @@ export default function App() {
   const activeDailyTask = findDailyTask(activeDayId) ?? dailyTasks[0];
   const day1InProgress = activeTaskId === "day1-spelling" && queue.length > 0 && index < queue.length;
   const day2QuizInProgress = activeTaskId === "day2-yesterday-choice" && queue.length > 0 && index < queue.length;
+  const day3QuizInProgress = activeTaskId === "day3-day2-choice" && queue.length > 0 && index < queue.length;
   const day1ProgressText = day1InProgress ? `已做 ${Math.min(index, queue.length)} / ${queue.length} 题` : "1 个小任务 · 100 题";
   const showQuizProgress = queue.length > 0 && activeSection !== "overview" && activeSection !== "review";
   const showTaskSection = activeSection === "overview" || (activeSection === "spelling" && queue.length === 0);
@@ -509,6 +562,34 @@ export default function App() {
   }, [allWords, yesterdayAnsweredWords]);
   const day2ReviewWordCount = day2ChoiceWords.filter((item) => yesterdayAnsweredWords.some((word) => word.id === item.id)).length;
   const day2NewWordCount = day2ChoiceWords.length - day2ReviewWordCount;
+  const day2CompletedChoiceWords = useMemo(() => {
+    const seen = new Set<number>();
+    return getLatestRecordsBySessionPrefix(savedRecords, "day2-yesterday-choice-")
+      .sort((a, b) => a.id - b.id)
+      .map((record) => allWords.find((item) => item.id === record.wordId))
+      .filter((item): item is VocabItem => Boolean(item))
+      .filter((item) => {
+        if (seen.has(item.id)) return false;
+        seen.add(item.id);
+        return true;
+      });
+  }, [allWords, savedRecords]);
+  const day3ChoiceWords = useMemo(() => {
+    const day2Ids = new Set(day2CompletedChoiceWords.map((item) => item.id));
+    const reviewWords = shuffleArray(day2CompletedChoiceWords).slice(0, DAY3_REVIEW_WORD_COUNT);
+    const newWords = shuffleArray(allWords.filter((item) => !day2Ids.has(item.id))).slice(0, DAY3_NEW_WORD_COUNT);
+    const fallbackWords =
+      reviewWords.length + newWords.length >= DAY3_CHOICE_COUNT
+        ? []
+        : shuffleArray(allWords.filter((item) => !reviewWords.some((reviewWord) => reviewWord.id === item.id) && !newWords.some((newWord) => newWord.id === item.id))).slice(
+            0,
+            DAY3_CHOICE_COUNT - reviewWords.length - newWords.length
+          );
+
+    return uniqueWords([...reviewWords, ...newWords, ...fallbackWords]).slice(0, DAY3_CHOICE_COUNT);
+  }, [allWords, day2CompletedChoiceWords]);
+  const day3ReviewWordCount = day3ChoiceWords.filter((item) => day2CompletedChoiceWords.some((word) => word.id === item.id)).length;
+  const day3NewWordCount = day3ChoiceWords.length - day3ReviewWordCount;
   const wordbookCountOptions = useMemo(() => {
     const options = [10, 20, 30, 50, 100, allWords.length].filter((count) => count > 0 && count <= allWords.length);
     return [...new Set(options)].sort((a, b) => a - b);
@@ -602,7 +683,9 @@ export default function App() {
           ? "Day 1 拼写自测"
           : reviewSessionId.startsWith("day2-yesterday-choice-")
             ? "Day 2 英译中选择题"
-            : `${modeLabels[first.mode]}${first.difficulty ? ` · ${difficultyLabels[first.difficulty]}` : ""}`;
+            : reviewSessionId.startsWith("day3-day2-choice-")
+              ? "Day 3 英译中选择题"
+              : `${modeLabels[first.mode]}${first.difficulty ? ` · ${difficultyLabels[first.difficulty]}` : ""}`;
 
         return {
           id: reviewSessionId,
@@ -704,21 +787,7 @@ export default function App() {
 
   function getQuizTaskRecords(task: DailyTaskItem): SavedAnswerRecord[] {
     if (!task.sessionPrefix) return [];
-    const groups = new Map<string, SavedAnswerRecord[]>();
-    savedRecords
-      .filter((record) => record.session_id.startsWith(task.sessionPrefix ?? ""))
-      .forEach((record) => {
-        const group = groups.get(record.session_id) ?? [];
-        group.push(record);
-        groups.set(record.session_id, group);
-      });
-
-    return Array.from(groups.values())
-      .sort((left, right) => {
-        const leftLatest = Math.max(...left.map((record) => new Date(record.answeredAt).getTime()));
-        const rightLatest = Math.max(...right.map((record) => new Date(record.answeredAt).getTime()));
-        return rightLatest - leftLatest;
-      })[0] ?? [];
+    return getLatestRecordsBySessionPrefix(savedRecords, task.sessionPrefix);
   }
 
   function isTaskItemComplete(task: DailyTaskItem): boolean {
@@ -748,6 +817,9 @@ export default function App() {
     if (task.type === "quiz" && task.id === "day2-yesterday-choice" && day2QuizInProgress) {
       return `进行中 · 已做 ${Math.min(index, queue.length)} / ${queue.length} 题`;
     }
+    if (task.type === "quiz" && task.id === "day3-day2-choice" && day3QuizInProgress) {
+      return `进行中 · 已做 ${Math.min(index, queue.length)} / ${queue.length} 题`;
+    }
     if (task.type === "quiz") {
       const recordsForTask = getQuizTaskRecords(task);
       if (recordsForTask.length >= (task.count ?? 0)) {
@@ -762,6 +834,11 @@ export default function App() {
           ? `${task.description} 本轮会抽 ${day2ReviewWordCount} 个昨天词、${day2NewWordCount} 个新词。昨天可选 ${yesterdayAnsweredWords.length} 个。`
           : `昨天还没有可用答题词。`;
       }
+      if (task.source === "day2ChoiceAnswers") {
+        return day3ChoiceWords.length > 0
+          ? `${task.description} 本轮会抽 ${day3ReviewWordCount} 个 Day2 词、${day3NewWordCount} 个新词。Day2 可选 ${day2CompletedChoiceWords.length} 个。`
+          : "还没有可用的 Day2 选择题词。";
+      }
       return task.description;
     }
 
@@ -775,6 +852,10 @@ export default function App() {
     if (task.type === "quiz" && task.id === "day1-spelling") return day1InProgress ? "继续" : isTaskItemComplete(task) ? "再做一次" : "开始";
     if (task.type === "quiz" && task.id === "day2-yesterday-choice") {
       if (day2QuizInProgress) return "继续";
+      return isTaskItemComplete(task) ? "再做一次" : "开始";
+    }
+    if (task.type === "quiz" && task.id === "day3-day2-choice") {
+      if (day3QuizInProgress) return "继续";
       return isTaskItemComplete(task) ? "再做一次" : "开始";
     }
     if (task.type === "script-reading") return isTaskItemComplete(task) ? "再读一遍" : "开始熟读";
@@ -873,6 +954,31 @@ export default function App() {
     });
   }
 
+  function startDay3ChoiceTask() {
+    if (day3QuizInProgress) {
+      setActiveSection("taskDetail");
+      setActiveDayId("day3");
+      setMode("choice");
+      setSpellingDifficulty("medium");
+      setQuestionCount(Math.min(DAY3_CHOICE_COUNT, queue.length || day3ChoiceWords.length));
+      setSelected("");
+      setTyped("");
+      setFeedback("idle");
+      return;
+    }
+
+    if (day3ChoiceWords.length === 0) return;
+    startQuiz("choice", {
+      difficulty: "medium",
+      count: DAY3_CHOICE_COUNT,
+      section: "taskDetail",
+      sessionId: `day3-day2-choice-${createSessionId()}`,
+      taskId: "day3-day2-choice",
+      dayId: "day3",
+      sourceWords: day3ChoiceWords
+    });
+  }
+
   function startTaskItem(task: DailyTaskItem) {
     if (task.id === "day1-spelling") {
       startDay1();
@@ -880,6 +986,10 @@ export default function App() {
     }
     if (task.id === "day2-yesterday-choice") {
       startYesterdayChoiceTask();
+      return;
+    }
+    if (task.id === "day3-day2-choice") {
+      startDay3ChoiceTask();
       return;
     }
     if (task.passageSlug && task.responseMode) {
@@ -977,6 +1087,10 @@ export default function App() {
     }
     if (activeTaskId === "day2-yesterday-choice") {
       startYesterdayChoiceTask();
+      return;
+    }
+    if (activeTaskId === "day3-day2-choice") {
+      startDay3ChoiceTask();
       return;
     }
     startQuiz(mode, { difficulty: spellingDifficulty, count: questionCount, section: activeSection });
@@ -1192,7 +1306,9 @@ export default function App() {
             <div className="task-item-list">
               {activeDailyTask.items.map((task) => {
                 const complete = isTaskItemComplete(task);
-                const disabled = task.id === "day2-yesterday-choice" && day2ChoiceWords.length === 0 && !day2QuizInProgress;
+                const disabled =
+                  (task.id === "day2-yesterday-choice" && day2ChoiceWords.length === 0 && !day2QuizInProgress) ||
+                  (task.id === "day3-day2-choice" && day3ChoiceWords.length === 0 && !day3QuizInProgress);
                 return (
                   <div className={complete ? "task-item-card complete" : "task-item-card"} key={task.id}>
                     <div className="task-item-main">
