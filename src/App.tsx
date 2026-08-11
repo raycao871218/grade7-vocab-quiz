@@ -375,15 +375,9 @@ function buildReadingCheckItems(passage: ReadingPassage): ReadingCheckItem[] {
     .map(extractNotePrompt)
     .filter((prompt) => prompt.split(/\s+/).length > 1);
 
-  const sentencePrompts = passage.body
-    .split(/\n+|(?<=[.!?])\s+/)
-    .map(cleanReadingPrompt)
-    .filter((sentence) => sentence.length >= 12 && sentence.length <= 120);
-
   const candidates: ReadingCheckItem[] = [
     ...notePrompts.map((prompt): ReadingCheckItem => ({ kind: "word", prompt })),
     ...phrasePrompts.map((prompt): ReadingCheckItem => ({ kind: "phrase", prompt })),
-    ...sentencePrompts.map((prompt): ReadingCheckItem => ({ kind: "sentence", prompt })),
   ];
 
   const seen = new Set<string>();
@@ -1738,7 +1732,7 @@ export default function App() {
                       <form className="reading-check-form" onSubmit={completeReadingTask}>
                         <div>
                           <p className="prompt-label">读后翻译检查</p>
-                          <h3>把下面 5 个词、词组或句子翻译成中文</h3>
+                          <h3>把下面 5 个单词或词组翻译成中文</h3>
                         </div>
                         {readingCheckItems.map((item, itemIndex) => (
                           <label className="reading-check-row" key={`${item.prompt}-${itemIndex}`}>
