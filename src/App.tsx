@@ -200,7 +200,7 @@ const dailyTasks: DailyTask[] = [
     label: "Day 3",
     title: "熟读 + Day2 单词复习",
     description: "继续熟读 Muddy Puddles 和 The North Wind and the Sun，再复习 Day2 的选择题词。",
-    unlockAt: "2026-08-11T06:00:00+08:00",
+    unlockAt: "2026-08-10T20:00:00+08:00",
     items: [
       {
         id: "day3-muddy-read",
@@ -239,7 +239,7 @@ const dailyTasks: DailyTask[] = [
     label: "Day 4",
     title: "极熟练朗读 + 混合单词题",
     description: "把旧阅读材料读到非常熟，再读小猪佩奇第二集，最后完成中英混合单词题。",
-    unlockAt: "2026-08-12T06:00:00+08:00",
+    unlockAt: "2026-08-11T20:00:00+08:00",
     items: [
       {
         id: "day4-muddy-fluent",
