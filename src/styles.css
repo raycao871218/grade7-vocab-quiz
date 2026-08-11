@@ -378,6 +378,72 @@ p {
   color: #82786b;
 }
 
+.task-evaluation {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+  border-left: 4px solid #c75f4a;
+  padding: 12px 0 12px 14px;
+  background: linear-gradient(90deg, #fff1e9 0%, #fffdf8 100%);
+}
+
+.task-evaluation.compact {
+  gap: 8px;
+  margin-top: 12px;
+  padding-block: 10px;
+}
+
+.task-evaluation-heading {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  justify-content: space-between;
+  color: #8d321f;
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+
+.task-evaluation-heading time {
+  color: #8f7766;
+  font-size: 0.76rem;
+}
+
+.task-evaluation-summary,
+.task-evaluation-items p {
+  margin: 0;
+  color: #4d392d;
+  line-height: 1.65;
+}
+
+.task-evaluation-items {
+  display: grid;
+  gap: 6px;
+}
+
+.task-evaluation-items strong {
+  margin-right: 6px;
+  color: #17201a;
+}
+
+.evaluation-highlight {
+  border-radius: 6px;
+  padding: 2px 6px;
+  background: #ffd166;
+  color: #3f2500;
+  font-weight: 900;
+}
+
+.evaluation-highlight.danger {
+  background: #ff6b5f;
+  color: #fffaf5;
+}
+
+.evaluation-highlight.warning {
+  background: #ffd166;
+  color: #3f2500;
+}
+
 .task-detail-dashboard {
   width: min(820px, 100%);
 }

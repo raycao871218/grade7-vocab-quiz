@@ -15,6 +15,7 @@ from .db import (
     fetch_reading_passage,
     fetch_reading_passage_summaries,
     fetch_reading_submissions,
+    fetch_task_evaluations,
     fetch_user_summary,
     fetch_vocab_words,
     insert_answer_record,
@@ -174,6 +175,12 @@ def save_reading_submission(payload: ReadingSubmissionRequest) -> dict[str, Any]
 def get_reading_submissions(username: str, limit: int = 100) -> dict[str, Any]:
     safe_limit = min(max(limit, 1), 200)
     return {"submissions": fetch_reading_submissions(username, safe_limit)}
+
+
+@app.get("/api/users/{username}/task-evaluations")
+def get_task_evaluations(username: str, limit: int = 30) -> dict[str, Any]:
+    safe_limit = min(max(limit, 1), 100)
+    return {"evaluations": fetch_task_evaluations(username, safe_limit)}
 
 
 @app.get("/api/users/{username}/summary")

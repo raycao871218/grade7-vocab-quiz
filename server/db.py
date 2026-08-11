@@ -1,3 +1,4 @@
+import json
 from typing import Any
 
 from psycopg.rows import dict_row
@@ -346,6 +347,61 @@ def fetch_reading_submissions(username: str, limit: int = 100) -> list[dict[str,
                 (normalized_username, limit),
             )
             return [dict(row) for row in cursor.fetchall()]
+
+
+def normalize_evaluation_items(value: Any) -> list[dict[str, Any]]:
+    if value is None:
+        return []
+    if isinstance(value, memoryview):
+        value = value.tobytes()
+    if isinstance(value, bytes):
+        value = value.decode("utf-8")
+    if isinstance(value, str):
+        parsed = json.loads(value)
+    else:
+        parsed = value
+    if not isinstance(parsed, list):
+        return []
+    return [item for item in parsed if isinstance(item, dict)]
+
+
+def fetch_task_evaluations(username: str, limit: int = 30) -> list[dict[str, Any]]:
+    normalized_username = normalize_username(username)
+    with pool.connection() as conn:
+        with conn.cursor(row_factory=dict_row) as cursor:
+            cursor.execute(
+                """
+                SELECT
+                  id,
+                  username,
+                  task_date AS "taskDate",
+                  task_id AS "taskId",
+                  summary,
+                  evaluation_items AS "items",
+                  created_at AS "createdAt",
+                  updated_at AS "updatedAt"
+                FROM task_evaluations
+                WHERE username = %s
+                ORDER BY task_date DESC, updated_at DESC, id DESC
+                LIMIT %s
+                """,
+                (normalized_username, limit),
+            )
+            rows = cursor.fetchall()
+
+    return [
+        {
+            "id": row["id"],
+            "username": decode_db_text(row["username"]),
+            "taskDate": row["taskDate"],
+            "taskId": decode_db_text(row["taskId"]),
+            "summary": decode_db_text(row["summary"]),
+            "items": normalize_evaluation_items(row["items"]),
+            "createdAt": row["createdAt"],
+            "updatedAt": row["updatedAt"],
+        }
+        for row in rows
+    ]
 
 
 def fetch_user_summary(username: str) -> dict[str, Any]:

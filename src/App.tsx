@@ -24,6 +24,8 @@ import type {
   ReadingSubmission,
   SavedAnswerRecord,
   SpellingDifficulty,
+  TaskEvaluation,
+  TaskEvaluationItem,
   VocabItem
 } from "./types";
 
@@ -47,6 +49,10 @@ type ReadingPassagesResponse = {
 
 type ReadingSubmissionsResponse = {
   submissions: ReadingSubmission[];
+};
+
+type TaskEvaluationsResponse = {
+  evaluations: TaskEvaluation[];
 };
 
 type PersistedQuizState = {
@@ -375,6 +381,38 @@ function formatAnswerDuration(durationMs: number | null): string {
   return `用时 ${minutes} 分 ${remainingSeconds} 秒`;
 }
 
+function renderEvaluationItem(item: TaskEvaluationItem) {
+  return item.segments.map((segment, segmentIndex) =>
+    segment.highlight ? (
+      <mark className={`evaluation-highlight ${segment.tone === "danger" ? "danger" : "warning"}`} key={`${item.label}-${segmentIndex}`}>
+        {segment.text}
+      </mark>
+    ) : (
+      <span key={`${item.label}-${segmentIndex}`}>{segment.text}</span>
+    )
+  );
+}
+
+function renderTaskEvaluation(evaluation: TaskEvaluation, compact = false) {
+  return (
+    <div className={compact ? "task-evaluation compact" : "task-evaluation"}>
+      <div className="task-evaluation-heading">
+        <span>今日评价</span>
+        <time>{new Date(`${evaluation.taskDate}T00:00:00`).toLocaleDateString()}</time>
+      </div>
+      {evaluation.summary && <p className="task-evaluation-summary">{evaluation.summary}</p>}
+      <div className="task-evaluation-items">
+        {evaluation.items.map((item) => (
+          <p key={item.label}>
+            <strong>{item.label}</strong>
+            {renderEvaluationItem(item)}
+          </p>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function getInitialSection(): AppSection {
   const saved = localStorage.getItem(SECTION_KEY) as AppSection | null;
   return saved && validSections.includes(saved) ? saved : "overview";
@@ -408,6 +446,7 @@ export default function App() {
   const [peppaError, setPeppaError] = useState("");
   const [translationText, setTranslationText] = useState("");
   const [readingSubmissions, setReadingSubmissions] = useState<ReadingSubmission[]>([]);
+  const [taskEvaluations, setTaskEvaluations] = useState<TaskEvaluation[]>([]);
   const [readingSubmitted, setReadingSubmitted] = useState(false);
   const [now, setNow] = useState(() => Date.now());
   const questionStartedAt = useRef<number | null>(null);
@@ -481,6 +520,7 @@ export default function App() {
     setActiveDayId((currentDayId) => currentDayId ?? localStorage.getItem(getActiveDayKey(username)) ?? undefined);
     setSavedRecords([]);
     setReadingSubmissions([]);
+    setTaskEvaluations([]);
     void refreshUserData(username);
   }, [username]);
 
@@ -510,6 +550,13 @@ export default function App() {
   const mistakes = records.filter((record) => !record.correct);
   const allWords = useMemo(() => uniqueWords(words), [words]);
   const activeDailyTask = findDailyTask(activeDayId) ?? dailyTasks[0];
+  const evaluationsByTaskId = useMemo(() => {
+    const entries = new Map<string, TaskEvaluation>();
+    taskEvaluations.forEach((evaluation) => {
+      if (!entries.has(evaluation.taskId)) entries.set(evaluation.taskId, evaluation);
+    });
+    return entries;
+  }, [taskEvaluations]);
   const day1InProgress = activeTaskId === "day1-spelling" && queue.length > 0 && index < queue.length;
   const day2QuizInProgress = activeTaskId === "day2-yesterday-choice" && queue.length > 0 && index < queue.length;
   const day3QuizInProgress = activeTaskId === "day3-day2-choice" && queue.length > 0 && index < queue.length;
@@ -711,9 +758,10 @@ export default function App() {
 
   async function refreshUserData(nextUsername = username) {
     if (!nextUsername) return;
-    const [recordsResponse, readingResponse] = await Promise.all([
+    const [recordsResponse, readingResponse, evaluationsResponse] = await Promise.all([
       fetch(`/api/users/${encodeURIComponent(nextUsername)}/records?limit=500`),
-      fetch(`/api/users/${encodeURIComponent(nextUsername)}/reading-submissions?limit=100`)
+      fetch(`/api/users/${encodeURIComponent(nextUsername)}/reading-submissions?limit=100`),
+      fetch(`/api/users/${encodeURIComponent(nextUsername)}/task-evaluations?limit=30`)
     ]);
     if (recordsResponse.ok) {
       const data = (await recordsResponse.json()) as ReviewResponse;
@@ -722,6 +770,10 @@ export default function App() {
     if (readingResponse.ok) {
       const data = (await readingResponse.json()) as ReadingSubmissionsResponse;
       setReadingSubmissions(data.submissions);
+    }
+    if (evaluationsResponse.ok) {
+      const data = (await evaluationsResponse.json()) as TaskEvaluationsResponse;
+      setTaskEvaluations(data.evaluations);
     }
   }
 
@@ -742,6 +794,7 @@ export default function App() {
     setFeedback("idle");
     setRecords([]);
     setSavedRecords([]);
+    setTaskEvaluations([]);
     setActiveTaskId(undefined);
     setActiveDayId(undefined);
     setReadingPassageSlug("");
@@ -766,6 +819,7 @@ export default function App() {
     setRecords([]);
     setSavedRecords([]);
     setReadingSubmissions([]);
+    setTaskEvaluations([]);
     setReadingPassageSlug("");
     setReadingPassage(null);
     setTranslationText("");
@@ -1285,6 +1339,7 @@ export default function App() {
             {dailyTasks.map((task) => {
               const locked = isDailyTaskLocked(task);
               const unavailable = locked || task.items.length === 0;
+              const evaluation = evaluationsByTaskId.get(task.id);
               return (
                 <div className={locked ? "task-card locked" : "task-card"} key={task.id}>
                   <div>
@@ -1292,6 +1347,7 @@ export default function App() {
                     <h3>{locked ? "任务未开放" : task.title}</h3>
                     <p>{task.id === "day1" ? day1ProgressText : getDailyTaskProgressText(task)}</p>
                     <p>{locked ? "到时间以后再来看今天要做什么。" : task.description}</p>
+                    {evaluation && renderTaskEvaluation(evaluation, true)}
                   </div>
                   <button className="primary-button" disabled={unavailable} onClick={() => openDailyTask(task)}>
                     <Play aria-hidden="true" />
@@ -1314,6 +1370,7 @@ export default function App() {
               <h2>{activeDailyTask.title}</h2>
               <p>{activeDailyTask.description}</p>
             </div>
+            {evaluationsByTaskId.get(activeDailyTask.id) && renderTaskEvaluation(evaluationsByTaskId.get(activeDailyTask.id)!)}
             <div className="task-item-list">
               {activeDailyTask.items.map((task) => {
                 const complete = isTaskItemComplete(task);

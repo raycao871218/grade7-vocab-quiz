@@ -86,3 +86,25 @@ export type ReadingSubmission = {
   durationMs: number | null;
   submittedAt: string;
 };
+
+export type TaskEvaluationSegment = {
+  text: string;
+  highlight?: boolean;
+  tone?: "warning" | "danger";
+};
+
+export type TaskEvaluationItem = {
+  label: string;
+  segments: TaskEvaluationSegment[];
+};
+
+export type TaskEvaluation = {
+  id: number;
+  username: string;
+  taskDate: string;
+  taskId: string;
+  summary: string;
+  items: TaskEvaluationItem[];
+  createdAt: string;
+  updatedAt: string;
+};

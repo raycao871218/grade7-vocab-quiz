@@ -135,6 +135,21 @@ CREATE INDEX IF NOT EXISTS reading_submissions_username_submitted_idx
 CREATE INDEX IF NOT EXISTS reading_submissions_username_task_idx
   ON reading_submissions (username, task_id, submitted_at DESC);
 
+CREATE TABLE IF NOT EXISTS task_evaluations (
+  id BIGSERIAL PRIMARY KEY,
+  username TEXT NOT NULL REFERENCES app_users(username) ON DELETE CASCADE,
+  task_date DATE NOT NULL,
+  task_id TEXT NOT NULL,
+  summary TEXT NOT NULL DEFAULT '',
+  evaluation_items JSONB NOT NULL DEFAULT '[]'::jsonb,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (username, task_date, task_id)
+);
+
+CREATE INDEX IF NOT EXISTS task_evaluations_username_date_idx
+  ON task_evaluations (username, task_date DESC, task_id);
+
 INSERT INTO reading_passages (slug, title, source, body, notes)
 VALUES (
   'north-wind-sun-original',
