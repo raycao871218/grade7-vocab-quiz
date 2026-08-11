@@ -87,6 +87,11 @@ export type ReadingSubmission = {
   submittedAt: string;
 };
 
+export type ReadingCheckItem = {
+  kind: "word" | "phrase" | "sentence";
+  prompt: string;
+};
+
 export type TaskEvaluationSegment = {
   text: string;
   highlight?: boolean;

@@ -189,6 +189,70 @@ ON CONFLICT (slug) DO UPDATE
 
 INSERT INTO reading_passages (slug, title, source, body, notes)
 VALUES (
+  'peppa-pig-mr-dinosaur-is-lost',
+  'Mr. Dinosaur is Lost',
+  'Peppa Pig episode 2 adapted practice script',
+  $$Narrator: George has a toy dinosaur. Its name is Mr. Dinosaur.
+George: Dinosaur.
+Peppa: George loves Mr. Dinosaur very much.
+Narrator: George takes Mr. Dinosaur everywhere.
+Peppa: George, do you want to play with me?
+George: Dinosaur.
+Peppa: You can bring Mr. Dinosaur.
+Narrator: Peppa and George are playing in the garden.
+Peppa: Let us make a little house.
+George: Dinosaur.
+Narrator: George puts Mr. Dinosaur on the grass.
+Peppa: Come on, George. Let us run.
+Narrator: Peppa and George run around the garden.
+George: Dinosaur?
+Narrator: George cannot find Mr. Dinosaur.
+George: Dinosaur!
+Peppa: Do not worry, George. We can look for him.
+Mummy Pig: What is the matter?
+Peppa: Mr. Dinosaur is lost.
+Daddy Pig: Do not worry. We will find him.
+Narrator: Everyone looks for Mr. Dinosaur.
+Peppa: Is he under the tree?
+Daddy Pig: No, he is not under the tree.
+Mummy Pig: Is he behind the flowerpot?
+Peppa: No, he is not behind the flowerpot.
+Daddy Pig: Maybe he is in the grass.
+Narrator: Daddy Pig looks carefully.
+Daddy Pig: Here he is!
+George: Dinosaur!
+Peppa: Mr. Dinosaur was hiding in the grass.
+Narrator: George is very happy. Everyone is happy.
+George: Dinosaur.$$,
+  $$toy 玩具
+dinosaur 恐龙
+everywhere 到处
+bring 带来；拿来
+garden 花园
+grass 草地
+run around 跑来跑去
+cannot find 找不到
+Do not worry. 别担心。
+look for 寻找
+What is the matter? 怎么了？
+lost 丢失的
+under 在……下面
+behind 在……后面
+flowerpot 花盆
+maybe 也许
+carefully 仔细地
+Here he is! 他在这里！
+hiding hide 的现在分词，躲藏$$
+)
+ON CONFLICT (slug) DO UPDATE
+  SET title = EXCLUDED.title,
+      source = EXCLUDED.source,
+      body = EXCLUDED.body,
+      notes = EXCLUDED.notes,
+      updated_at = now();
+
+INSERT INTO reading_passages (slug, title, source, body, notes)
+VALUES (
   'peppa-pig-muddy-puddles',
   'Muddy Puddles',
   'Peppa Pig episode script provided by user',

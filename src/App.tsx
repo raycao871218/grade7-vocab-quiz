@@ -21,6 +21,7 @@ import type {
   QuizMode,
   ReadingPassage,
   ReadingPassageSummary,
+  ReadingCheckItem,
   ReadingSubmission,
   SavedAnswerRecord,
   SpellingDifficulty,
@@ -105,6 +106,10 @@ const DAY2_NEW_WORD_COUNT = 9;
 const DAY3_CHOICE_COUNT = 30;
 const DAY3_REVIEW_WORD_COUNT = 21;
 const DAY3_NEW_WORD_COUNT = 9;
+const DAY4_MIXED_COUNT = 50;
+const DAY4_REVIEW_WORD_COUNT = 30;
+const DAY4_NEW_WORD_COUNT = 20;
+const READING_CHECK_COUNT = 5;
 type TaskItemType = "quiz" | "script-reading" | "translation";
 
 type DailyTaskItem = {
@@ -119,7 +124,7 @@ type DailyTaskItem = {
   difficulty?: SpellingDifficulty;
   count?: number;
   sessionPrefix?: string;
-  source?: "allWords" | "yesterdayAnswers" | "day2ChoiceAnswers";
+  source?: "allWords" | "yesterdayAnswers" | "day2ChoiceAnswers" | "day3ChoiceAnswers";
 };
 
 type DailyTask = {
@@ -228,6 +233,54 @@ const dailyTasks: DailyTask[] = [
         source: "day2ChoiceAnswers"
       }
     ]
+  },
+  {
+    id: "day4",
+    label: "Day 4",
+    title: "极熟练朗读 + 混合单词题",
+    description: "把旧阅读材料读到非常熟，再读小猪佩奇第二集，最后完成中英混合单词题。",
+    unlockAt: "2026-08-12T06:00:00+08:00",
+    items: [
+      {
+        id: "day4-muddy-fluent",
+        type: "script-reading",
+        label: "第一项",
+        title: "Muddy Puddles 极度流畅朗读",
+        description: "继续读 Muddy Puddles，目标是极度流畅，不磕巴，不跳词。",
+        passageSlug: "peppa-pig-muddy-puddles",
+        responseMode: "complete"
+      },
+      {
+        id: "day4-dinosaur-read",
+        type: "script-reading",
+        label: "第二项",
+        title: "Mr. Dinosaur is Lost 逐句理解",
+        description: "读小猪佩奇第二集练习剧本，要求可以逐句说出中文意思。",
+        passageSlug: "peppa-pig-mr-dinosaur-is-lost",
+        responseMode: "complete"
+      },
+      {
+        id: "day4-north-fluent",
+        type: "script-reading",
+        label: "第三项",
+        title: "The North Wind and the Sun 极熟练朗读",
+        description: "要求极度熟练，没有陌生单词。可以记不住拼写，但每个词必须脸熟。",
+        passageSlug: "north-wind-sun-original",
+        responseMode: "complete"
+      },
+      {
+        id: "day4-vocab-mixed",
+        type: "quiz",
+        label: "第四项",
+        title: "中英混合单词题 50 个",
+        description: "30 个老单词，20 个新单词。题型混合：英译中选择题和中译英输入题都会出现，新词优先抽七下词汇。",
+        mode: "choice",
+        difficulty: "medium",
+        count: DAY4_MIXED_COUNT,
+        sessionPrefix: "day4-vocab-mixed-",
+        source: "day3ChoiceAnswers"
+      }
+    ]
   }
 ] as const satisfies DailyTask[];
 
@@ -293,6 +346,55 @@ function makePrompt(mode: QuizMode, difficulty: SpellingDifficulty, item: VocabI
   if (difficulty === "hard") return makeClozeSentence(item);
   if (difficulty === "easy") return `${item.chinese} / ${makeMask(item.english)}`;
   return item.chinese;
+}
+
+function cleanReadingPrompt(value: string): string {
+  return value
+    .replace(/^[A-Za-z ]+:\s*/, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function extractNotePrompt(line: string): string {
+  const chineseMatch = /[\u3400-\u9fff]/.exec(line);
+  const prompt = chineseMatch ? line.slice(0, chineseMatch.index) : line;
+  return prompt.replace(/[.。；;，,：:]+$/g, "").trim();
+}
+
+function buildReadingCheckItems(passage: ReadingPassage): ReadingCheckItem[] {
+  const notePrompts = passage.notes
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map(extractNotePrompt)
+    .filter((prompt) => prompt.length > 1);
+
+  const phrasePrompts = passage.notes
+    .split("\n")
+    .map((line) => line.trim())
+    .map(extractNotePrompt)
+    .filter((prompt) => prompt.split(/\s+/).length > 1);
+
+  const sentencePrompts = passage.body
+    .split(/\n+|(?<=[.!?])\s+/)
+    .map(cleanReadingPrompt)
+    .filter((sentence) => sentence.length >= 12 && sentence.length <= 120);
+
+  const candidates: ReadingCheckItem[] = [
+    ...notePrompts.map((prompt): ReadingCheckItem => ({ kind: "word", prompt })),
+    ...phrasePrompts.map((prompt): ReadingCheckItem => ({ kind: "phrase", prompt })),
+    ...sentencePrompts.map((prompt): ReadingCheckItem => ({ kind: "sentence", prompt })),
+  ];
+
+  const seen = new Set<string>();
+  const uniqueCandidates = candidates.filter((item) => {
+    const key = normalizeAnswer(item.prompt);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+
+  return shuffleArray(uniqueCandidates).slice(0, READING_CHECK_COUNT);
 }
 
 function serializeRecords(records: AnswerRecord[]) {
@@ -446,6 +548,9 @@ export default function App() {
   const [peppaError, setPeppaError] = useState("");
   const [translationText, setTranslationText] = useState("");
   const [readingSubmissions, setReadingSubmissions] = useState<ReadingSubmission[]>([]);
+  const [readingCheckStarted, setReadingCheckStarted] = useState(false);
+  const [readingCheckItems, setReadingCheckItems] = useState<ReadingCheckItem[]>([]);
+  const [readingCheckAnswers, setReadingCheckAnswers] = useState<string[]>([]);
   const [taskEvaluations, setTaskEvaluations] = useState<TaskEvaluation[]>([]);
   const [readingSubmitted, setReadingSubmitted] = useState(false);
   const [now, setNow] = useState(() => Date.now());
@@ -560,6 +665,8 @@ export default function App() {
   const day1InProgress = activeTaskId === "day1-spelling" && queue.length > 0 && index < queue.length;
   const day2QuizInProgress = activeTaskId === "day2-yesterday-choice" && queue.length > 0 && index < queue.length;
   const day3QuizInProgress = activeTaskId === "day3-day2-choice" && queue.length > 0 && index < queue.length;
+  const day4QuizInProgress = activeTaskId === "day4-vocab-mixed" && queue.length > 0 && index < queue.length;
+  const effectiveMode: QuizMode = activeTaskId === "day4-vocab-mixed" && current ? (index % 2 === 0 ? "choice" : "typing") : mode;
   const day1ProgressText = day1InProgress ? `已做 ${Math.min(index, queue.length)} / ${queue.length} 题` : "1 个小任务 · 100 题";
   const showQuizProgress = queue.length > 0 && activeSection !== "overview" && activeSection !== "review";
   const showTaskSection = activeSection === "overview" || (activeSection === "spelling" && queue.length === 0);
@@ -648,6 +755,36 @@ export default function App() {
   }, [allWords, day2CompletedChoiceWords]);
   const day3ReviewWordCount = day3ChoiceWords.filter((item) => day2CompletedChoiceWords.some((word) => word.id === item.id)).length;
   const day3NewWordCount = day3ChoiceWords.length - day3ReviewWordCount;
+  const day3CompletedChoiceWords = useMemo(() => {
+    const seen = new Set<number>();
+    return getLatestRecordsBySessionPrefix(savedRecords, "day3-day2-choice-")
+      .sort((a, b) => a.id - b.id)
+      .map((record) => allWords.find((item) => item.id === record.wordId))
+      .filter((item): item is VocabItem => Boolean(item))
+      .filter((item) => {
+        if (seen.has(item.id)) return false;
+        seen.add(item.id);
+        return true;
+      });
+  }, [allWords, savedRecords]);
+  const day4ChoiceWords = useMemo(() => {
+    if (day3CompletedChoiceWords.length === 0) return [];
+    const reviewWords = shuffleArray(day3CompletedChoiceWords).slice(0, DAY4_REVIEW_WORD_COUNT);
+    const reviewIds = new Set(reviewWords.map((item) => item.id));
+    const lowerSemesterWords = allWords.filter(
+      (item) => !reviewIds.has(item.id) && (item.origin?.semester.includes("下") || item.origin?.label.includes("七下"))
+    );
+    const newWords = shuffleArray(lowerSemesterWords).slice(0, DAY4_NEW_WORD_COUNT);
+    const selectedIds = new Set([...reviewWords, ...newWords].map((item) => item.id));
+    const fallbackWords =
+      reviewWords.length + newWords.length >= DAY4_MIXED_COUNT
+        ? []
+        : shuffleArray(allWords.filter((item) => !selectedIds.has(item.id))).slice(0, DAY4_MIXED_COUNT - reviewWords.length - newWords.length);
+
+    return uniqueWords([...reviewWords, ...newWords, ...fallbackWords]).slice(0, DAY4_MIXED_COUNT);
+  }, [allWords, day3CompletedChoiceWords]);
+  const day4ReviewWordCount = day4ChoiceWords.filter((item) => day3CompletedChoiceWords.some((word) => word.id === item.id)).length;
+  const day4NewWordCount = day4ChoiceWords.length - day4ReviewWordCount;
   const wordbookCountOptions = useMemo(() => {
     const options = [10, 20, 30, 50, 100, allWords.length].filter((count) => count > 0 && count <= allWords.length);
     return [...new Set(options)].sort((a, b) => a - b);
@@ -743,7 +880,9 @@ export default function App() {
             ? "Day 2 英译中选择题"
             : reviewSessionId.startsWith("day3-day2-choice-")
               ? "Day 3 英译中选择题"
-              : `${modeLabels[first.mode]}${first.difficulty ? ` · ${difficultyLabels[first.difficulty]}` : ""}`;
+              : reviewSessionId.startsWith("day4-vocab-mixed-")
+                ? "Day 4 中英混合单词题"
+                : `${modeLabels[first.mode]}${first.difficulty ? ` · ${difficultyLabels[first.difficulty]}` : ""}`;
 
         return {
           id: reviewSessionId,
@@ -800,6 +939,9 @@ export default function App() {
     setReadingPassageSlug("");
     setReadingPassage(null);
     setTranslationText("");
+    setReadingCheckStarted(false);
+    setReadingCheckItems([]);
+    setReadingCheckAnswers([]);
     setReadingSubmitted(false);
     localStorage.removeItem(QUIZ_STATE_KEY);
     localStorage.removeItem(ACTIVE_DAY_KEY);
@@ -823,6 +965,9 @@ export default function App() {
     setReadingPassageSlug("");
     setReadingPassage(null);
     setTranslationText("");
+    setReadingCheckStarted(false);
+    setReadingCheckItems([]);
+    setReadingCheckAnswers([]);
     setReadingSubmitted(false);
     localStorage.removeItem(USERNAME_KEY);
     localStorage.removeItem(QUIZ_STATE_KEY);
@@ -885,6 +1030,9 @@ export default function App() {
     if (task.type === "quiz" && task.id === "day3-day2-choice" && day3QuizInProgress) {
       return `进行中 · 已做 ${Math.min(index, queue.length)} / ${queue.length} 题`;
     }
+    if (task.type === "quiz" && task.id === "day4-vocab-mixed" && day4QuizInProgress) {
+      return `进行中 · 已做 ${Math.min(index, queue.length)} / ${queue.length} 题`;
+    }
     if (task.type === "quiz") {
       const recordsForTask = getQuizTaskRecords(task);
       if (recordsForTask.length >= (task.count ?? 0)) {
@@ -904,6 +1052,11 @@ export default function App() {
           ? `${task.description} 本轮会抽 ${day3ReviewWordCount} 个 Day2 词、${day3NewWordCount} 个新词。Day2 可选 ${day2CompletedChoiceWords.length} 个。`
           : "还没有可用的 Day2 选择题词。";
       }
+      if (task.source === "day3ChoiceAnswers") {
+        return day4ChoiceWords.length > 0
+          ? `${task.description} 本轮会抽 ${day4ReviewWordCount} 个 Day3 词、${day4NewWordCount} 个新词。Day3 可选 ${day3CompletedChoiceWords.length} 个。`
+          : "还没有可用的 Day3 选择题词。";
+      }
       return task.description;
     }
 
@@ -921,6 +1074,10 @@ export default function App() {
     }
     if (task.type === "quiz" && task.id === "day3-day2-choice") {
       if (day3QuizInProgress) return "继续";
+      return isTaskItemComplete(task) ? "再做一次" : "开始";
+    }
+    if (task.type === "quiz" && task.id === "day4-vocab-mixed") {
+      if (day4QuizInProgress) return "继续";
       return isTaskItemComplete(task) ? "再做一次" : "开始";
     }
     if (task.type === "script-reading") return isTaskItemComplete(task) ? "再读一遍" : "开始熟读";
@@ -1044,6 +1201,31 @@ export default function App() {
     });
   }
 
+  function startDay4VocabularyTask() {
+    if (day4QuizInProgress) {
+      setActiveSection("taskDetail");
+      setActiveDayId("day4");
+      setMode("choice");
+      setSpellingDifficulty("medium");
+      setQuestionCount(Math.min(DAY4_MIXED_COUNT, queue.length || day4ChoiceWords.length));
+      setSelected("");
+      setTyped("");
+      setFeedback("idle");
+      return;
+    }
+
+    if (day4ChoiceWords.length === 0) return;
+    startQuiz("choice", {
+      difficulty: "medium",
+      count: DAY4_MIXED_COUNT,
+      section: "taskDetail",
+      sessionId: `day4-vocab-mixed-${createSessionId()}`,
+      taskId: "day4-vocab-mixed",
+      dayId: "day4",
+      sourceWords: day4ChoiceWords
+    });
+  }
+
   function startTaskItem(task: DailyTaskItem) {
     if (task.id === "day1-spelling") {
       startDay1();
@@ -1055,6 +1237,10 @@ export default function App() {
     }
     if (task.id === "day3-day2-choice") {
       startDay3ChoiceTask();
+      return;
+    }
+    if (task.id === "day4-vocab-mixed") {
+      startDay4VocabularyTask();
       return;
     }
     if (task.passageSlug && task.responseMode) {
@@ -1080,12 +1266,15 @@ export default function App() {
   function startReadingTask(task: ReadingTask, returnSection?: AppSection) {
     setActiveSection("reading");
     setActiveTaskId(task.id);
-    setActiveDayId(returnSection === "peppa" ? undefined : task.id.startsWith("day2-") ? "day2" : activeDayId);
+    setActiveDayId(returnSection === "peppa" ? undefined : task.id.startsWith("day") ? task.id.slice(0, 4) : activeDayId);
     setReadingPassageSlug(task.passageSlug);
     setReadingPassage((currentPassage) => (currentPassage?.slug === task.passageSlug ? currentPassage : null));
     setReadingError("");
     const latestSubmission = readingSubmissions.find((submission) => submission.taskId === task.id);
     setReadingSubmitted(Boolean(latestSubmission));
+    setReadingCheckStarted(false);
+    setReadingCheckItems([]);
+    setReadingCheckAnswers([]);
     setQueue([]);
     setIndex(0);
     setSelected("");
@@ -1122,10 +1311,37 @@ export default function App() {
     await refreshUserData(username);
   }
 
-  async function completeReadingTask() {
+  function startReadingCheck() {
+    if (!readingPassage) return;
+    const items = buildReadingCheckItems(readingPassage);
+    setReadingCheckItems(items);
+    setReadingCheckAnswers(Array(items.length).fill(""));
+    setReadingCheckStarted(true);
+  }
+
+  function updateReadingCheckAnswer(answerIndex: number, answer: string) {
+    setReadingCheckAnswers((previous) => previous.map((item, index) => (index === answerIndex ? answer : item)));
+  }
+
+  async function completeReadingTask(event?: FormEvent<HTMLFormElement>) {
+    event?.preventDefault();
     if (!username || !activeReadingTask || !readingPassageSlug) return;
+    if (activeReadingTask.responseMode === "complete" && (readingCheckItems.length === 0 || readingCheckAnswers.some((answer) => answer.trim().length === 0))) {
+      setReadingError("请先完成 5 道读后翻译检查。");
+      return;
+    }
     const durationMs =
       readingStartedAt.current === null ? null : Math.max(0, Math.round(performance.now() - readingStartedAt.current));
+    const completionText =
+      activeReadingTask.responseMode === "complete"
+        ? JSON.stringify({
+            type: "reading-check",
+            items: readingCheckItems.map((item, itemIndex) => ({
+              ...item,
+              answer: readingCheckAnswers[itemIndex].trim()
+            }))
+          })
+        : "已完成阅读";
     const response = await fetch("/api/reading-submissions", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -1133,7 +1349,7 @@ export default function App() {
         username,
         task_id: activeReadingTask.id,
         passage_slug: readingPassageSlug,
-        translation_text: "已完成阅读",
+        translation_text: completionText,
         duration_ms: durationMs
       })
     });
@@ -1158,6 +1374,10 @@ export default function App() {
       startDay3ChoiceTask();
       return;
     }
+    if (activeTaskId === "day4-vocab-mixed") {
+      startDay4VocabularyTask();
+      return;
+    }
     startQuiz(mode, { difficulty: spellingDifficulty, count: questionCount, section: activeSection });
   }
 
@@ -1174,7 +1394,7 @@ export default function App() {
     setActiveSection(nextSection);
   }
 
-  function saveAnswer(answer: string, correct: boolean, item: VocabItem, answerDurationMs: number | null) {
+  function saveAnswer(answer: string, correct: boolean, item: VocabItem, answerDurationMs: number | null, answerMode: QuizMode) {
     if (!username) return;
     void fetch("/api/answers", {
       method: "POST",
@@ -1182,13 +1402,13 @@ export default function App() {
       body: JSON.stringify({
         username,
         session_id: sessionId,
-        mode,
+        mode: answerMode,
         difficulty: spellingDifficulty,
         question_count: questionCount,
         word_display_order: item.id,
         english: item.english,
         chinese: item.chinese,
-        prompt: makePrompt(mode, spellingDifficulty, item),
+        prompt: makePrompt(answerMode, spellingDifficulty, item),
         user_answer: answer,
         correct,
         answer_duration_ms: answerDurationMs
@@ -1199,9 +1419,10 @@ export default function App() {
   function submitAnswer(answer: string) {
     if (!current || feedback !== "idle") return;
 
-    const expected = mode === "choice" ? current.chinese : current.english;
+    const answerMode = effectiveMode;
+    const expected = answerMode === "choice" ? current.chinese : current.english;
     const correct =
-      mode === "choice"
+      answerMode === "choice"
         ? answer === expected
         : normalizeAnswer(answer) === normalizeAnswer(expected);
     const answerDurationMs =
@@ -1209,7 +1430,7 @@ export default function App() {
 
     setRecords((previous) => [...previous, { item: current, userAnswer: answer, correct }]);
     setFeedback(correct ? "right" : "wrong");
-    saveAnswer(answer, correct, current, answerDurationMs);
+    saveAnswer(answer, correct, current, answerDurationMs, answerMode);
   }
 
   function nextQuestion() {
@@ -1376,7 +1597,8 @@ export default function App() {
                 const complete = isTaskItemComplete(task);
                 const disabled =
                   (task.id === "day2-yesterday-choice" && day2ChoiceWords.length === 0 && !day2QuizInProgress) ||
-                  (task.id === "day3-day2-choice" && day3ChoiceWords.length === 0 && !day3QuizInProgress);
+                  (task.id === "day3-day2-choice" && day3ChoiceWords.length === 0 && !day3QuizInProgress) ||
+                  (task.id === "day4-vocab-mixed" && day4ChoiceWords.length === 0 && !day4QuizInProgress);
                 return (
                   <div className={complete ? "task-item-card complete" : "task-item-card"} key={task.id}>
                     <div className="task-item-main">
@@ -1506,14 +1728,44 @@ export default function App() {
                 )}
                 {activeReadingTask?.responseMode === "complete" && (
                   <div className="reading-actions">
-                    <button className="primary-button" disabled={readingSubmitted} onClick={completeReadingTask}>
-                      <Check aria-hidden="true" />
-                      {readingSubmitted ? "已读完" : "我读完了"}
-                    </button>
+                    {!readingSubmitted && !readingCheckStarted && (
+                      <button className="primary-button" onClick={startReadingCheck}>
+                        <Check aria-hidden="true" />
+                        我读完了，开始检查
+                      </button>
+                    )}
+                    {!readingSubmitted && readingCheckStarted && (
+                      <form className="reading-check-form" onSubmit={completeReadingTask}>
+                        <div>
+                          <p className="prompt-label">读后翻译检查</p>
+                          <h3>把下面 5 个词、词组或句子翻译成中文</h3>
+                        </div>
+                        {readingCheckItems.map((item, itemIndex) => (
+                          <label className="reading-check-row" key={`${item.prompt}-${itemIndex}`}>
+                            <span>{item.prompt}</span>
+                            <textarea
+                              onChange={(event) => updateReadingCheckAnswer(itemIndex, event.target.value)}
+                              placeholder="写中文意思"
+                              value={readingCheckAnswers[itemIndex] ?? ""}
+                            />
+                          </label>
+                        ))}
+                        <button className="primary-button" disabled={readingCheckAnswers.some((answer) => answer.trim().length === 0)}>
+                          <Check aria-hidden="true" />
+                          提交读后检查
+                        </button>
+                      </form>
+                    )}
+                    {readingSubmitted && (
+                      <span className="reading-complete-pill">
+                        <Check aria-hidden="true" />
+                        已完成读后检查
+                      </span>
+                    )}
                     {activeReadingSubmission && <span>完成时间：{new Date(activeReadingSubmission.submittedAt).toLocaleString()}</span>}
                     {readingSubmitted && (
                       <button className="ghost-button light" onClick={() => setActiveSection(readingReturnSection)}>
-                        {isPeppaModuleActive ? "回到剧集" : "回到 Day 2"}
+                        {isPeppaModuleActive ? "回到剧集" : readingReturnLabel}
                       </button>
                     )}
                   </div>
@@ -1661,7 +1913,7 @@ export default function App() {
               <span>{current.origin?.label || "高频词"}</span>
             </div>
 
-            {mode === "choice" && (
+            {effectiveMode === "choice" && (
               <>
                 <p className="prompt-label">请选择中文意思</p>
                 <h2 className="prompt-word">
@@ -1691,7 +1943,7 @@ export default function App() {
               </>
             )}
 
-            {mode !== "choice" && (
+            {effectiveMode !== "choice" && (
               <form
                 className="typing-form"
                 onSubmit={(event) => {
@@ -1700,7 +1952,7 @@ export default function App() {
                 }}
               >
                 <p className="prompt-label">
-                  {mode === "typing"
+                  {effectiveMode === "typing"
                     ? "请写出英文"
                     : spellingDifficulty === "hard"
                       ? "请根据英文句子填空"
@@ -1708,12 +1960,12 @@ export default function App() {
                         ? "请根据中文拼写英文"
                         : "请根据中文和提示拼写英文"}
                 </p>
-                {mode !== "spelling" || spellingDifficulty !== "hard" ? (
+                {effectiveMode !== "spelling" || spellingDifficulty !== "hard" ? (
                   <h2 className="prompt-word chinese">{current.chinese}</h2>
                 ) : (
                   <p className="cloze-sentence">{makeClozeSentence(current)}</p>
                 )}
-                {(mode === "spelling" || mode === "typing") && spellingDifficulty === "easy" && (
+                {(effectiveMode === "spelling" || effectiveMode === "typing") && spellingDifficulty === "easy" && (
                   <p className="spelling-mask">{makeMask(current.english)}</p>
                 )}
                 <input
@@ -1722,7 +1974,7 @@ export default function App() {
                   autoComplete="off"
                   disabled={feedback !== "idle"}
                   onChange={(event) => setTyped(event.target.value)}
-                  placeholder={mode === "spelling" && spellingDifficulty === "hard" ? "填入空缺的英文" : "输入英文"}
+                  placeholder={effectiveMode === "spelling" && spellingDifficulty === "hard" ? "填入空缺的英文" : "输入英文"}
                   value={typed}
                 />
                 <button className="primary-button" disabled={feedback !== "idle" || typed.trim().length === 0}>

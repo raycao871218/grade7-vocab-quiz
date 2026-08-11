@@ -735,6 +735,61 @@ p {
   gap: 10px;
 }
 
+.reading-check-form {
+  display: grid;
+  gap: 14px;
+  border: 1px solid #dfd6c7;
+  border-radius: 8px;
+  padding: 16px;
+  background: #fffdf8;
+}
+
+.reading-check-form h3 {
+  margin: 4px 0 0;
+  color: #17201a;
+  font-size: 1.1rem;
+}
+
+.reading-check-row {
+  display: grid;
+  gap: 8px;
+}
+
+.reading-check-row span {
+  color: #24352c;
+  font-weight: 850;
+  line-height: 1.45;
+}
+
+.reading-check-row textarea {
+  min-height: 72px;
+  resize: vertical;
+  border: 1px solid #d4c8b6;
+  border-radius: 8px;
+  padding: 12px 14px;
+  background: #fffaf2;
+  color: #17201a;
+  line-height: 1.5;
+}
+
+.reading-complete-pill {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+  width: fit-content;
+  border: 1px solid #b8d3b2;
+  border-radius: 999px;
+  padding: 8px 12px;
+  background: #e9f3e4;
+  color: #315f3b;
+  font-weight: 900;
+}
+
+.reading-complete-pill svg {
+  width: 18px;
+  height: 18px;
+}
+
 .translation-actions span,
 .reading-actions span {
   color: #5b6c5d;
