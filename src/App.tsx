@@ -348,13 +348,6 @@ function makePrompt(mode: QuizMode, difficulty: SpellingDifficulty, item: VocabI
   return item.chinese;
 }
 
-function cleanReadingPrompt(value: string): string {
-  return value
-    .replace(/^[A-Za-z ]+:\s*/, "")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
 function extractNotePrompt(line: string): string {
   const chineseMatch = /[\u3400-\u9fff]/.exec(line);
   const prompt = chineseMatch ? line.slice(0, chineseMatch.index) : line;
@@ -423,6 +416,24 @@ function findDailyTask(dayId: string | undefined): DailyTask | undefined {
 
 function findReadingTask(taskId: string | undefined): ReadingTask | undefined {
   return readingTasks.find((task) => task.id === taskId);
+}
+
+function isFluencyReadingTask(task: ReadingTask | undefined): boolean {
+  if (!task || task.responseMode !== "complete") return false;
+  const taskText = `${task.title} ${task.description}`;
+  return /熟读|流畅|极熟练|极度|脸熟/.test(taskText);
+}
+
+function isRepeatedDailyReadingTask(task: ReadingTask | undefined): boolean {
+  if (!task) return false;
+  const taskIndex = readingTasks.findIndex((item) => item.id === task.id);
+  if (taskIndex < 0) return false;
+  return readingTasks.slice(0, taskIndex).some((item) => item.passageSlug === task.passageSlug);
+}
+
+function shouldShowReadingNotes(task: ReadingTask | undefined, passage: ReadingPassage): boolean {
+  if (!passage.notes) return false;
+  return !(isFluencyReadingTask(task) && isRepeatedDailyReadingTask(task));
 }
 
 function toLocalDateKey(value: string | Date): string {
@@ -1688,7 +1699,7 @@ export default function App() {
                   {readingPassage.body.split("\n\n").map((paragraph) => (
                     <p key={paragraph}>{paragraph}</p>
                   ))}
-                  {readingPassage.notes && (
+                  {shouldShowReadingNotes(activeReadingTask, readingPassage) && (
                     <div className="reading-notes">
                       <h4>难词提示</h4>
                       {readingPassage.notes.split("\n").map((line) => (
