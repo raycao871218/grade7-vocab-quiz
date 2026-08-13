@@ -150,6 +150,249 @@ CREATE TABLE IF NOT EXISTS task_evaluations (
 CREATE INDEX IF NOT EXISTS task_evaluations_username_date_idx
   ON task_evaluations (username, task_date DESC, task_id);
 
+INSERT INTO vocab_lists (slug, title, description, grade_level, semester, source_label)
+VALUES
+  ('reading-peppa', '小猪佩奇阅读生词', '从小猪佩奇阅读任务中补充的生词。', 7, '小猪佩奇', '小猪佩奇'),
+  ('reading-aesop', '伊索寓言阅读生词', '从 The North Wind and the Sun 阅读任务中补充的生词。', 7, '伊索寓言', '伊索寓言')
+ON CONFLICT (slug) DO UPDATE
+  SET title = EXCLUDED.title,
+      description = EXCLUDED.description,
+      grade_level = EXCLUDED.grade_level,
+      semester = EXCLUDED.semester,
+      source_label = EXCLUDED.source_label,
+      updated_at = now();
+
+WITH reading_vocab (source_slug, source_label, english, meaning, source_order) AS (
+  VALUES
+    ('reading-peppa', '小猪佩奇', 'muddy', '泥泞的', 1),
+    ('reading-peppa', '小猪佩奇', 'puddle', '水坑', 2),
+    ('reading-peppa', '小猪佩奇', 'muddy puddle', '泥坑', 3),
+    ('reading-peppa', '小猪佩奇', 'all right', '好吧', 4),
+    ('reading-peppa', '小猪佩奇', 'run along', '去吧；去玩吧', 5),
+    ('reading-peppa', '小猪佩奇', 'look after', '照顾', 6),
+    ('reading-peppa', '小猪佩奇', 'a lot of', '许多', 7),
+    ('reading-peppa', '小猪佩奇', 'have a lot of fun', '玩得很开心', 8),
+    ('reading-peppa', '小猪佩奇', 'check', '检查', 9),
+    ('reading-peppa', '小猪佩奇', 'Goodness me', '我的天哪；真是的', 10),
+    ('reading-peppa', '小猪佩奇', 'come on', '快点', 11),
+    ('reading-peppa', '小猪佩奇', 'have a bath', '洗澡', 12),
+    ('reading-peppa', '小猪佩奇', 'look at', '看', 13),
+    ('reading-peppa', '小猪佩奇', 'mess', '乱七八糟；脏乱', 14),
+    ('reading-peppa', '小猪佩奇', 'clean up', '清理干净', 15),
+    ('reading-peppa', '小猪佩奇', 'up and down', '上上下下', 16),
+    ('reading-aesop', '伊索寓言', 'quarrel', '争吵', 1),
+    ('reading-aesop', '伊索寓言', 'traveler', '旅行者；行人', 2),
+    ('reading-aesop', '伊索寓言', 'cloak', '斗篷；披风', 3),
+    ('reading-aesop', '伊索寓言', 'agree', '同意；约定', 4),
+    ('reading-aesop', '伊索寓言', 'take off', '脱下', 5),
+    ('reading-aesop', '伊索寓言', 'blew', '吹（blow 的过去式）', 6),
+    ('reading-aesop', '伊索寓言', 'with all his might', '用尽全力', 7),
+    ('reading-aesop', '伊索寓言', 'tighter', '更紧地', 8),
+    ('reading-aesop', '伊索寓言', 'wrapped', '裹住；包住（wrap 的过去式）', 9),
+    ('reading-aesop', '伊索寓言', 'gave up', '放弃（give up 的过去式）', 10),
+    ('reading-aesop', '伊索寓言', 'shone', '照耀（shine 的过去式）', 11),
+    ('reading-aesop', '伊索寓言', 'gentleness', '温和；温柔', 12),
+    ('reading-aesop', '伊索寓言', 'force', '力量；武力', 13)
+)
+INSERT INTO vocab_words (english, normalized_english)
+SELECT english, lower(english)
+FROM reading_vocab
+ON CONFLICT (normalized_english) DO UPDATE
+  SET english = EXCLUDED.english,
+      updated_at = now();
+
+WITH reading_vocab (source_slug, source_label, english, meaning, source_order) AS (
+  VALUES
+    ('reading-peppa', '小猪佩奇', 'muddy', '泥泞的', 1),
+    ('reading-peppa', '小猪佩奇', 'puddle', '水坑', 2),
+    ('reading-peppa', '小猪佩奇', 'muddy puddle', '泥坑', 3),
+    ('reading-peppa', '小猪佩奇', 'all right', '好吧', 4),
+    ('reading-peppa', '小猪佩奇', 'run along', '去吧；去玩吧', 5),
+    ('reading-peppa', '小猪佩奇', 'look after', '照顾', 6),
+    ('reading-peppa', '小猪佩奇', 'a lot of', '许多', 7),
+    ('reading-peppa', '小猪佩奇', 'have a lot of fun', '玩得很开心', 8),
+    ('reading-peppa', '小猪佩奇', 'check', '检查', 9),
+    ('reading-peppa', '小猪佩奇', 'Goodness me', '我的天哪；真是的', 10),
+    ('reading-peppa', '小猪佩奇', 'come on', '快点', 11),
+    ('reading-peppa', '小猪佩奇', 'have a bath', '洗澡', 12),
+    ('reading-peppa', '小猪佩奇', 'look at', '看', 13),
+    ('reading-peppa', '小猪佩奇', 'mess', '乱七八糟；脏乱', 14),
+    ('reading-peppa', '小猪佩奇', 'clean up', '清理干净', 15),
+    ('reading-peppa', '小猪佩奇', 'up and down', '上上下下', 16),
+    ('reading-aesop', '伊索寓言', 'quarrel', '争吵', 1),
+    ('reading-aesop', '伊索寓言', 'traveler', '旅行者；行人', 2),
+    ('reading-aesop', '伊索寓言', 'cloak', '斗篷；披风', 3),
+    ('reading-aesop', '伊索寓言', 'agree', '同意；约定', 4),
+    ('reading-aesop', '伊索寓言', 'take off', '脱下', 5),
+    ('reading-aesop', '伊索寓言', 'blew', '吹（blow 的过去式）', 6),
+    ('reading-aesop', '伊索寓言', 'with all his might', '用尽全力', 7),
+    ('reading-aesop', '伊索寓言', 'tighter', '更紧地', 8),
+    ('reading-aesop', '伊索寓言', 'wrapped', '裹住；包住（wrap 的过去式）', 9),
+    ('reading-aesop', '伊索寓言', 'gave up', '放弃（give up 的过去式）', 10),
+    ('reading-aesop', '伊索寓言', 'shone', '照耀（shine 的过去式）', 11),
+    ('reading-aesop', '伊索寓言', 'gentleness', '温和；温柔', 12),
+    ('reading-aesop', '伊索寓言', 'force', '力量；武力', 13)
+)
+INSERT INTO vocab_meanings (word_id, language_code, meaning, sense_order)
+SELECT w.id, 'zh-CN', reading_vocab.meaning, 1
+FROM reading_vocab
+JOIN vocab_words w ON w.normalized_english = lower(reading_vocab.english)
+ON CONFLICT (word_id, language_code, sense_order) DO UPDATE
+  SET meaning = EXCLUDED.meaning,
+      updated_at = now();
+
+WITH reading_vocab (source_slug, source_label, english, meaning, source_order) AS (
+  VALUES
+    ('reading-peppa', '小猪佩奇', 'muddy', '泥泞的', 1),
+    ('reading-peppa', '小猪佩奇', 'puddle', '水坑', 2),
+    ('reading-peppa', '小猪佩奇', 'muddy puddle', '泥坑', 3),
+    ('reading-peppa', '小猪佩奇', 'all right', '好吧', 4),
+    ('reading-peppa', '小猪佩奇', 'run along', '去吧；去玩吧', 5),
+    ('reading-peppa', '小猪佩奇', 'look after', '照顾', 6),
+    ('reading-peppa', '小猪佩奇', 'a lot of', '许多', 7),
+    ('reading-peppa', '小猪佩奇', 'have a lot of fun', '玩得很开心', 8),
+    ('reading-peppa', '小猪佩奇', 'check', '检查', 9),
+    ('reading-peppa', '小猪佩奇', 'Goodness me', '我的天哪；真是的', 10),
+    ('reading-peppa', '小猪佩奇', 'come on', '快点', 11),
+    ('reading-peppa', '小猪佩奇', 'have a bath', '洗澡', 12),
+    ('reading-peppa', '小猪佩奇', 'look at', '看', 13),
+    ('reading-peppa', '小猪佩奇', 'mess', '乱七八糟；脏乱', 14),
+    ('reading-peppa', '小猪佩奇', 'clean up', '清理干净', 15),
+    ('reading-peppa', '小猪佩奇', 'up and down', '上上下下', 16),
+    ('reading-aesop', '伊索寓言', 'quarrel', '争吵', 1),
+    ('reading-aesop', '伊索寓言', 'traveler', '旅行者；行人', 2),
+    ('reading-aesop', '伊索寓言', 'cloak', '斗篷；披风', 3),
+    ('reading-aesop', '伊索寓言', 'agree', '同意；约定', 4),
+    ('reading-aesop', '伊索寓言', 'take off', '脱下', 5),
+    ('reading-aesop', '伊索寓言', 'blew', '吹（blow 的过去式）', 6),
+    ('reading-aesop', '伊索寓言', 'with all his might', '用尽全力', 7),
+    ('reading-aesop', '伊索寓言', 'tighter', '更紧地', 8),
+    ('reading-aesop', '伊索寓言', 'wrapped', '裹住；包住（wrap 的过去式）', 9),
+    ('reading-aesop', '伊索寓言', 'gave up', '放弃（give up 的过去式）', 10),
+    ('reading-aesop', '伊索寓言', 'shone', '照耀（shine 的过去式）', 11),
+    ('reading-aesop', '伊索寓言', 'gentleness', '温和；温柔', 12),
+    ('reading-aesop', '伊索寓言', 'force', '力量；武力', 13)
+)
+INSERT INTO vocab_list_items (list_id, word_id, display_order, is_bonus, notes)
+SELECT l.id, w.id, reading_vocab.source_order, false, format('semester:%s;source:%s', reading_vocab.source_label, reading_vocab.source_slug)
+FROM reading_vocab
+JOIN vocab_lists l ON l.slug = reading_vocab.source_slug
+JOIN vocab_words w ON w.normalized_english = lower(reading_vocab.english)
+ON CONFLICT (list_id, word_id) DO UPDATE
+  SET notes = EXCLUDED.notes,
+      updated_at = now();
+
+WITH reading_vocab (source_slug, source_label, english, meaning, source_order) AS (
+  VALUES
+    ('reading-peppa', '小猪佩奇', 'muddy', '泥泞的', 1),
+    ('reading-peppa', '小猪佩奇', 'puddle', '水坑', 2),
+    ('reading-peppa', '小猪佩奇', 'muddy puddle', '泥坑', 3),
+    ('reading-peppa', '小猪佩奇', 'all right', '好吧', 4),
+    ('reading-peppa', '小猪佩奇', 'run along', '去吧；去玩吧', 5),
+    ('reading-peppa', '小猪佩奇', 'look after', '照顾', 6),
+    ('reading-peppa', '小猪佩奇', 'a lot of', '许多', 7),
+    ('reading-peppa', '小猪佩奇', 'have a lot of fun', '玩得很开心', 8),
+    ('reading-peppa', '小猪佩奇', 'check', '检查', 9),
+    ('reading-peppa', '小猪佩奇', 'Goodness me', '我的天哪；真是的', 10),
+    ('reading-peppa', '小猪佩奇', 'come on', '快点', 11),
+    ('reading-peppa', '小猪佩奇', 'have a bath', '洗澡', 12),
+    ('reading-peppa', '小猪佩奇', 'look at', '看', 13),
+    ('reading-peppa', '小猪佩奇', 'mess', '乱七八糟；脏乱', 14),
+    ('reading-peppa', '小猪佩奇', 'clean up', '清理干净', 15),
+    ('reading-peppa', '小猪佩奇', 'up and down', '上上下下', 16),
+    ('reading-aesop', '伊索寓言', 'quarrel', '争吵', 1),
+    ('reading-aesop', '伊索寓言', 'traveler', '旅行者；行人', 2),
+    ('reading-aesop', '伊索寓言', 'cloak', '斗篷；披风', 3),
+    ('reading-aesop', '伊索寓言', 'agree', '同意；约定', 4),
+    ('reading-aesop', '伊索寓言', 'take off', '脱下', 5),
+    ('reading-aesop', '伊索寓言', 'blew', '吹（blow 的过去式）', 6),
+    ('reading-aesop', '伊索寓言', 'with all his might', '用尽全力', 7),
+    ('reading-aesop', '伊索寓言', 'tighter', '更紧地', 8),
+    ('reading-aesop', '伊索寓言', 'wrapped', '裹住；包住（wrap 的过去式）', 9),
+    ('reading-aesop', '伊索寓言', 'gave up', '放弃（give up 的过去式）', 10),
+    ('reading-aesop', '伊索寓言', 'shone', '照耀（shine 的过去式）', 11),
+    ('reading-aesop', '伊索寓言', 'gentleness', '温和；温柔', 12),
+    ('reading-aesop', '伊索寓言', 'force', '力量；武力', 13)
+),
+missing_items AS (
+  SELECT
+    all_list.id AS list_id,
+    w.id AS word_id,
+    reading_vocab.source_slug,
+    reading_vocab.source_label,
+    row_number() OVER (ORDER BY reading_vocab.source_slug, reading_vocab.source_order, w.id) AS row_number
+  FROM reading_vocab
+  JOIN vocab_lists all_list ON all_list.slug = 'grade7-all-renjiao'
+  JOIN vocab_words w ON w.normalized_english = lower(reading_vocab.english)
+  WHERE NOT EXISTS (
+    SELECT 1
+    FROM vocab_list_items existing
+    WHERE existing.list_id = all_list.id
+      AND existing.word_id = w.id
+  )
+),
+max_order AS (
+  SELECT COALESCE(max(i.display_order), 0) AS value
+  FROM vocab_list_items i
+  JOIN vocab_lists l ON l.id = i.list_id
+  WHERE l.slug = 'grade7-all-renjiao'
+)
+INSERT INTO vocab_list_items (list_id, word_id, display_order, is_bonus, notes)
+SELECT
+  missing_items.list_id,
+  missing_items.word_id,
+  max_order.value + missing_items.row_number,
+  false,
+  format('semester:%s;source:%s', missing_items.source_label, missing_items.source_slug)
+FROM missing_items
+CROSS JOIN max_order;
+
+WITH missing_items AS (
+  SELECT
+    target_list.id AS list_id,
+    source_item.word_id,
+    row_number() OVER (PARTITION BY target_list.id ORDER BY source_list.slug, source_item.display_order, source_item.word_id) AS row_number
+  FROM vocab_lists target_list
+  JOIN vocab_lists source_list ON source_list.slug IN ('reading-peppa', 'reading-aesop')
+  JOIN vocab_list_items source_item ON source_item.list_id = source_list.id
+  WHERE target_list.slug = 'grade7-renjiao-placement'
+    AND NOT EXISTS (
+      SELECT 1
+      FROM vocab_list_items existing
+      WHERE existing.list_id = target_list.id
+        AND existing.word_id = source_item.word_id
+    )
+),
+max_order AS (
+  SELECT target_list.id AS list_id, COALESCE(max(target_item.display_order), 0) AS value
+  FROM vocab_lists target_list
+  LEFT JOIN vocab_list_items target_item ON target_item.list_id = target_list.id
+  WHERE target_list.slug = 'grade7-renjiao-placement'
+  GROUP BY target_list.id
+)
+INSERT INTO vocab_list_items (list_id, word_id, display_order, is_bonus, notes)
+SELECT
+  missing_items.list_id,
+  missing_items.word_id,
+  max_order.value + missing_items.row_number,
+  false,
+  format('semester:%s;source:%s', source_list.semester, source_list.slug)
+FROM missing_items
+JOIN max_order ON max_order.list_id = missing_items.list_id
+JOIN vocab_lists source_list ON source_list.slug IN ('reading-peppa', 'reading-aesop')
+JOIN vocab_list_items source_item ON source_item.list_id = source_list.id
+  AND source_item.word_id = missing_items.word_id;
+
+UPDATE vocab_list_items all_item
+SET notes = format('semester:%s;source:%s', source_list.semester, source_list.slug),
+    updated_at = now()
+FROM vocab_lists all_list
+JOIN vocab_lists source_list ON source_list.slug IN ('reading-peppa', 'reading-aesop')
+JOIN vocab_list_items source_item ON source_item.list_id = source_list.id
+WHERE all_list.slug IN ('grade7-all-renjiao', 'grade7-renjiao-placement')
+  AND all_item.list_id = all_list.id
+  AND all_item.word_id = source_item.word_id;
+
 INSERT INTO reading_passages (slug, title, source, body, notes)
 VALUES (
   'north-wind-sun-original',
