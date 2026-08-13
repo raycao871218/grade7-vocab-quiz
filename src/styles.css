@@ -444,6 +444,11 @@ p {
   color: #3f2500;
 }
 
+.evaluation-highlight.success {
+  background: #72d39a;
+  color: #063b20;
+}
+
 .task-detail-dashboard {
   width: min(820px, 100%);
 }

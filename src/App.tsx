@@ -596,7 +596,7 @@ function formatAnswerDuration(durationMs: number | null): string {
 function renderEvaluationItem(item: TaskEvaluationItem) {
   return item.segments.map((segment, segmentIndex) =>
     segment.highlight ? (
-      <mark className={`evaluation-highlight ${segment.tone === "danger" ? "danger" : "warning"}`} key={`${item.label}-${segmentIndex}`}>
+      <mark className={`evaluation-highlight ${segment.tone ?? "warning"}`} key={`${item.label}-${segmentIndex}`}>
         {segment.text}
       </mark>
     ) : (

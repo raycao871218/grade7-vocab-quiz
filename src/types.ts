@@ -95,7 +95,7 @@ export type ReadingCheckItem = {
 export type TaskEvaluationSegment = {
   text: string;
   highlight?: boolean;
-  tone?: "warning" | "danger";
+  tone?: "success" | "warning" | "danger";
 };
 
 export type TaskEvaluationItem = {
