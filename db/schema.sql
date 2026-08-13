@@ -434,58 +434,97 @@ INSERT INTO reading_passages (slug, title, source, body, notes)
 VALUES (
   'peppa-pig-mr-dinosaur-is-lost',
   'Mr. Dinosaur is Lost',
-  'Peppa Pig episode 2 adapted practice script',
-  $$Narrator: George has a toy dinosaur. Its name is Mr. Dinosaur.
-George: Dinosaur.
-Peppa: George loves Mr. Dinosaur very much.
-Narrator: George takes Mr. Dinosaur everywhere.
-Peppa: George, do you want to play with me?
-George: Dinosaur.
-Peppa: You can bring Mr. Dinosaur.
-Narrator: Peppa and George are playing in the garden.
-Peppa: Let us make a little house.
-George: Dinosaur.
-Narrator: George puts Mr. Dinosaur on the grass.
-Peppa: Come on, George. Let us run.
-Narrator: Peppa and George run around the garden.
-George: Dinosaur?
-Narrator: George cannot find Mr. Dinosaur.
+  'Peppa Pig episode 2 original script provided by user',
+  $$Narrator: George’s favourite toy is Mr. Dinosaur.
 George: Dinosaur!
-Peppa: Do not worry, George. We can look for him.
-Mummy Pig: What is the matter?
-Peppa: Mr. Dinosaur is lost.
-Daddy Pig: Do not worry. We will find him.
-Narrator: Everyone looks for Mr. Dinosaur.
-Peppa: Is he under the tree?
-Daddy Pig: No, he is not under the tree.
-Mummy Pig: Is he behind the flowerpot?
-Peppa: No, he is not behind the flowerpot.
-Daddy Pig: Maybe he is in the grass.
-Narrator: Daddy Pig looks carefully.
-Daddy Pig: Here he is!
+Narrator: George loves Mr. Dinosaur.
+George: Grrr!
+
+Narrator: Sometimes, George likes to scare Peppa with Mr. Dinosaur.
+George: Grrr!
+Peppa: Eek! Too scary.
+
+Narrator: At suppertime, Mr. Dinosaur sits next to George.
+Mummy Pig: I beg your pardon.
+Mummy Pig: Was that you George, or was it Mr. Dinosaur?
 George: Dinosaur!
-Peppa: Mr. Dinosaur was hiding in the grass.
-Narrator: George is very happy. Everyone is happy.
-George: Dinosaur.$$,
-  $$toy 玩具
-dinosaur 恐龙
-everywhere 到处
-bring 带来；拿来
-garden 花园
-grass 草地
-run around 跑来跑去
-cannot find 找不到
-Do not worry. 别担心。
-look for 寻找
-What is the matter? 怎么了？
-lost 丢失的
-under 在……下面
-behind 在……后面
-flowerpot 花盆
-maybe 也许
-carefully 仔细地
-Here he is! 他在这里！
-hiding hide 的现在分词，躲藏$$
+
+Narrator: At bath time, George shares his bath with Mr. Dinosaur.
+George: Grrr!
+
+Mummy Pig: Good night, Peppa.
+Peppa: Good night, Mummy.
+Mummy Pig: Good night, George.
+Mummy Pig: And good night, Mr. Dinosaur.
+George: Grrr!
+Narrator: When George goes to bed, Mr. Dinosaur is tucked up with him.
+
+Narrator: George’s favourite game is throwing Mr. Dinosaur up in the air...
+George: Whee!
+Narrator: ...and catching him when he falls back down.
+George: Whee!
+
+Narrator: Peppa and Daddy Pig are playing draughts.
+Peppa: I win, Daddy.
+Daddy Pig: Oh. Well done, Peppa.
+George: Whaaaaaaaa!
+Daddy Pig: George?
+George: Whaaaaaaaa!
+Mummy Pig: George, what’s the matter?
+George: Dinosaur.
+Daddy Pig: George, have you lost Mr. Dinosaur?
+Narrator: George has lost Mr. Dinosaur.
+Mummy Pig: Don’t worry, George. We’ll find Mr. Dinosaur.
+Daddy Pig: It’s a job for a detective.
+Peppa: Daddy, what is a detective?
+Daddy Pig: A detective is a very important person who is good at finding things.
+Peppa: Me! Me! I’m good at finding things.
+Daddy Pig: All right. Peppa is the detective.
+Peppa: George. I am the detective. I will help you find Mr. Dinosaur.
+Mummy Pig: Maybe the detective should ask George some simple questions.
+Peppa: George, where’s Mr. Dinosaur?
+George: Whaaaaaaaa!
+Narrator: George does not know where Mr. Dinosaur is.
+Daddy Pig: The detective could try and guess where Mr. Dinosaur might be.
+Peppa: I know. I know where he is.
+
+Peppa: George always has Mr. Dinosaur with him in the bath.
+Peppa: So Mr. Dinosaur is in the bath.
+Narrator: Mr. Dinosaur is not in the bath.
+Peppa: Oh. I know. I know where Mr. Dinosaur is.
+
+Peppa: George always has Mr. Dinosaur in his bed at night.
+Peppa: So that’s where he is.
+Narrator: Mr. Dinosaur is not in George’s bed.
+Peppa: Oh.
+Mummy Pig: Maybe we should try the garden.
+Peppa: Yes, the garden. I was going to say that.
+
+Peppa: Where is Mr. Dinosaur?
+Narrator: Mr. Dinosaur is very hard to find.
+Peppa: Oh. Mr. Dinosaur isn’t anywhere.
+Daddy Pig: George? You do love to throw Mr. Dinosaur in the air.
+Daddy Pig: I wonder if this time you threw Mr. Dinosaur just a bit too high.
+Peppa: There he is. There he is. I saw him first.
+Daddy Pig: Well done, Peppa.
+Daddy Pig: You really are a very good detective.
+George: Dinosaur. Grrr!
+Narrator: George is so happy to have Mr. Dinosaur back again.
+George: Whee!
+Daddy Pig: Maybe it isn’t a good idea to play with dinosaurs near trees.
+George: Dinosaur!$$,
+  $$eek 呀（表示害怕）
+next to 挨着
+tuck up 卷起
+share 分享
+play draughts 下跳棋
+well done 干得好
+What’s the matter? 怎么了？
+Don’t worry. 别担心
+detective 侦探
+be good at doing sth. 擅长做某事
+simple 简单的
+wonder 想知道，感到疑惑$$
 )
 ON CONFLICT (slug) DO UPDATE
   SET title = EXCLUDED.title,
