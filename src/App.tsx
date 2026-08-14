@@ -519,6 +519,12 @@ function findDailyTask(dayId: string | undefined): DailyTask | undefined {
   return dailyTasks.find((task) => task.id === dayId);
 }
 
+function getDailyTaskSortTime(task: DailyTask): number {
+  if (task.unlockAt) return new Date(task.unlockAt).getTime();
+  const dayNumber = Number(task.id.replace(/^day/, ""));
+  return Number.isFinite(dayNumber) ? dayNumber : 0;
+}
+
 function findReadingTask(taskId: string | undefined): ReadingTask | undefined {
   return readingTasks.find((task) => task.id === taskId);
 }
@@ -990,6 +996,10 @@ export default function App() {
   const activeWordbookQuestionCount = Math.min(wordbookQuestionCount, allWords.length);
   const readingReturnSection: AppSection = isPeppaModuleActive ? "peppa" : "taskDetail";
   const readingReturnLabel = isPeppaModuleActive ? "返回剧集" : "返回任务详情";
+  const displayedDailyTasks = useMemo(
+    () => [...dailyTasks].sort((left, right) => getDailyTaskSortTime(right) - getDailyTaskSortTime(left)),
+    []
+  );
 
   useEffect(() => {
     questionStartedAt.current = current ? performance.now() : null;
@@ -1849,7 +1859,7 @@ export default function App() {
               <p className="prompt-label">任务</p>
               <h2>今日任务</h2>
             </div>
-            {dailyTasks.map((task) => {
+            {displayedDailyTasks.map((task) => {
               const locked = isDailyTaskLocked(task);
               const unavailable = locked || task.items.length === 0;
               const evaluation = evaluationsByTaskId.get(task.id);
