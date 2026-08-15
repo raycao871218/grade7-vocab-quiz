@@ -119,7 +119,7 @@ const DAY6_UNTESTED_GRADE7_WORD_COUNT = 20;
 const DAY6_READING_WORD_COUNT = 5;
 const READING_CHECK_COUNT = 5;
 const READING_SOURCE_SLUGS = new Set(["reading-peppa", "reading-aesop"]);
-type TaskItemType = "quiz" | "script-reading" | "translation";
+type TaskItemType = "quiz" | "script-reading" | "translation" | "rest";
 
 type DailyTaskItem = {
   id: string;
@@ -405,6 +405,22 @@ const dailyTasks: DailyTask[] = [
         count: DAY6_MIXED_COUNT,
         sessionPrefix: "day7-vocab-mixed-",
         source: "testedAnswers"
+      }
+    ]
+  },
+  {
+    id: "day8",
+    label: "Day 8",
+    title: "休息一天",
+    description: "今天休息一天，不安排新的英语任务。",
+    unlockAt: "2026-08-15T20:00:00+08:00",
+    items: [
+      {
+        id: "day8-rest",
+        type: "rest",
+        label: "今日安排",
+        title: "休息一天",
+        description: "今天不需要提交阅读或单词题，好好休息。"
       }
     ]
   }
@@ -1255,6 +1271,7 @@ export default function App() {
   }
 
   function isTaskItemComplete(task: DailyTaskItem): boolean {
+    if (task.type === "rest") return true;
     if (task.type === "quiz") return getQuizTaskRecords(task).length >= (task.count ?? 0);
     return readingSubmissions.some((item) => item.taskId === task.id);
   }
@@ -1275,6 +1292,7 @@ export default function App() {
   }
 
   function getTaskItemProgressText(task: DailyTaskItem): string {
+    if (task.type === "rest") return "已安排休息";
     if (task.type === "quiz" && task.id === "day1-spelling" && day1InProgress) {
       return `进行中 · 已做 ${Math.min(index, queue.length)} / ${queue.length} 题`;
     }
@@ -1367,6 +1385,7 @@ export default function App() {
     }
     if (task.type === "script-reading") return isTaskItemComplete(task) ? "再读一遍" : "开始熟读";
     if (task.type === "translation") return isTaskItemComplete(task) ? "查看翻译" : "开始翻译";
+    if (task.type === "rest") return "休息";
     return "开始";
   }
 
@@ -1980,6 +1999,7 @@ export default function App() {
               {activeDailyTask.items.map((task) => {
                 const complete = isTaskItemComplete(task);
                 const disabled =
+                  task.type === "rest" ||
                   (task.id === "day2-yesterday-choice" && day2ChoiceWords.length === 0 && !day2QuizInProgress) ||
                   (task.id === "day3-day2-choice" && day3ChoiceWords.length === 0 && !day3QuizInProgress) ||
                   (task.id === "day4-vocab-mixed" && day4ChoiceWords.length === 0 && !day4QuizInProgress) ||
