@@ -117,6 +117,7 @@ const DAY6_MIXED_COUNT = 50;
 const DAY6_TESTED_WORD_COUNT = 25;
 const DAY6_UNTESTED_GRADE7_WORD_COUNT = 20;
 const DAY6_READING_WORD_COUNT = 5;
+const DAY9_MIXED_COUNT = 50;
 const READING_CHECK_COUNT = 5;
 const READING_SOURCE_SLUGS = new Set(["reading-peppa", "reading-aesop"]);
 type TaskItemType = "quiz" | "script-reading" | "translation" | "rest";
@@ -133,7 +134,14 @@ type DailyTaskItem = {
   difficulty?: SpellingDifficulty;
   count?: number;
   sessionPrefix?: string;
-  source?: "allWords" | "yesterdayAnswers" | "day2ChoiceAnswers" | "day3ChoiceAnswers" | "day4ChoiceAnswers" | "testedAnswers";
+  source?:
+    | "allWords"
+    | "yesterdayAnswers"
+    | "day2ChoiceAnswers"
+    | "day3ChoiceAnswers"
+    | "day4ChoiceAnswers"
+    | "testedAnswers"
+    | "latestAnswers";
 };
 
 type DailyTask = {
@@ -423,6 +431,45 @@ const dailyTasks: DailyTask[] = [
         description: "今天不需要提交阅读或单词题，好好休息。"
       }
     ]
+  },
+  {
+    id: "day9",
+    label: "Day 9",
+    title: "通篇背诵 + 流畅熟读 + 最新词复习",
+    description: "通篇背诵 The North Wind and the Sun，继续把小猪佩奇第二集读顺，再完成最新 50 个单词的中英混合题。",
+    unlockAt: "2026-08-16T20:00:00+08:00",
+    items: [
+      {
+        id: "day9-north-full-recite",
+        type: "script-reading",
+        label: "第一项",
+        title: "The North Wind and the Sun 通篇背诵",
+        description: "要求通篇背诵 The North Wind and the Sun，意思和读音都要熟。",
+        passageSlug: "north-wind-sun-original",
+        responseMode: "complete"
+      },
+      {
+        id: "day9-dinosaur-smooth",
+        type: "script-reading",
+        label: "第二项",
+        title: "Mr. Dinosaur is Lost 非常通顺熟读",
+        description: "熟读 Mr. Dinosaur is Lost，要求非常通顺，不磕巴，不跳词。",
+        passageSlug: "peppa-pig-mr-dinosaur-is-lost",
+        responseMode: "complete"
+      },
+      {
+        id: "day9-vocab-latest",
+        type: "quiz",
+        label: "第三项",
+        title: "最新 50 个单词中英混合题",
+        description: "选最近出现的 50 个单词，沿用中英混合题模式；阅读来源词只出英译中。",
+        mode: "choice",
+        difficulty: "medium",
+        count: DAY9_MIXED_COUNT,
+        sessionPrefix: "day9-vocab-latest-",
+        source: "latestAnswers"
+      }
+    ]
   }
 ] as const satisfies DailyTask[];
 
@@ -459,11 +506,19 @@ function isGrade7CoreWord(item: VocabItem): boolean {
 }
 
 function isMixedVocabTask(taskId: string | undefined): boolean {
-  return taskId === "day4-vocab-mixed" || taskId === "day5-vocab-mixed" || taskId === "day6-vocab-mixed" || taskId === "day7-vocab-mixed";
+  return (
+    taskId === "day4-vocab-mixed" ||
+    taskId === "day5-vocab-mixed" ||
+    taskId === "day6-vocab-mixed" ||
+    taskId === "day7-vocab-mixed" ||
+    taskId === "day9-vocab-latest"
+  );
 }
 
 function getEffectiveQuizMode(taskId: string | undefined, item: VocabItem | undefined, itemIndex: number, defaultMode: QuizMode): QuizMode {
-  if ((taskId === "day6-vocab-mixed" || taskId === "day7-vocab-mixed") && item && isReadingVocabWord(item)) return "choice";
+  if ((taskId === "day6-vocab-mixed" || taskId === "day7-vocab-mixed" || taskId === "day9-vocab-latest") && item && isReadingVocabWord(item)) {
+    return "choice";
+  }
   if (isMixedVocabTask(taskId) && item) return itemIndex % 2 === 0 ? "choice" : "typing";
   return defaultMode;
 }
@@ -587,7 +642,7 @@ function findReadingTask(taskId: string | undefined): ReadingTask | undefined {
 function isFluencyReadingTask(task: ReadingTask | undefined): boolean {
   if (!task || task.responseMode !== "complete") return false;
   const taskText = `${task.title} ${task.description}`;
-  return /熟读|流畅|极熟练|极度|脸熟/.test(taskText);
+  return /熟读|流畅|极熟练|极度|脸熟|背诵/.test(taskText);
 }
 
 function isRepeatedDailyReadingTask(task: ReadingTask | undefined): boolean {
@@ -840,6 +895,7 @@ export default function App() {
   const day5QuizInProgress = activeTaskId === "day5-vocab-mixed" && queue.length > 0 && index < queue.length;
   const day6QuizInProgress = activeTaskId === "day6-vocab-mixed" && queue.length > 0 && index < queue.length;
   const day7QuizInProgress = activeTaskId === "day7-vocab-mixed" && queue.length > 0 && index < queue.length;
+  const day9QuizInProgress = activeTaskId === "day9-vocab-latest" && queue.length > 0 && index < queue.length;
   const effectiveMode = getEffectiveQuizMode(activeTaskId, current, index, mode);
   const day1ProgressText = day1InProgress ? `已做 ${Math.min(index, queue.length)} / ${queue.length} 题` : "1 个小任务 · 100 题";
   const showQuizProgress = queue.length > 0 && activeSection !== "overview" && activeSection !== "review";
@@ -1045,6 +1101,28 @@ export default function App() {
     };
   }, [allWords, savedRecords, testedCoreWords]);
   const day6ChoiceWords = day6WordPlan.words;
+  const day9LatestWords = useMemo(() => {
+    const selectedIds = new Set<number>();
+    const latestAnsweredWords = [...savedRecords]
+      .sort((a, b) => new Date(b.answeredAt).getTime() - new Date(a.answeredAt).getTime())
+      .map((record) => allWords.find((item) => item.id === record.wordId))
+      .filter((item): item is VocabItem => Boolean(item))
+      .filter((item) => {
+        if (selectedIds.has(item.id)) return false;
+        selectedIds.add(item.id);
+        return true;
+      });
+
+    const fallbackWords =
+      latestAnsweredWords.length >= DAY9_MIXED_COUNT
+        ? []
+        : [...allWords]
+            .filter((item) => !selectedIds.has(item.id))
+            .sort((a, b) => b.id - a.id)
+            .slice(0, DAY9_MIXED_COUNT - latestAnsweredWords.length);
+
+    return uniqueWords([...latestAnsweredWords, ...fallbackWords]).slice(0, DAY9_MIXED_COUNT);
+  }, [allWords, savedRecords]);
   const wordbookCountOptions = useMemo(() => {
     const options = [10, 20, 30, 50, 100, allWords.length].filter((count) => count > 0 && count <= allWords.length);
     return [...new Set(options)].sort((a, b) => a - b);
@@ -1152,6 +1230,8 @@ export default function App() {
                   ? "Day 6 中英混合单词题"
                   : reviewSessionId.startsWith("day7-vocab-mixed-")
                     ? "Day 7 中英混合单词题"
+                    : reviewSessionId.startsWith("day9-vocab-latest-")
+                      ? "Day 9 最新 50 词中英混合题"
                     : `${modeLabels[first.mode]}${first.difficulty ? ` · ${difficultyLabels[first.difficulty]}` : ""}`;
 
         return {
@@ -1314,6 +1394,9 @@ export default function App() {
     if (task.type === "quiz" && task.id === "day7-vocab-mixed" && day7QuizInProgress) {
       return `进行中 · 已做 ${Math.min(index, queue.length)} / ${queue.length} 题`;
     }
+    if (task.type === "quiz" && task.id === "day9-vocab-latest" && day9QuizInProgress) {
+      return `进行中 · 已做 ${Math.min(index, queue.length)} / ${queue.length} 题`;
+    }
     if (task.type === "quiz") {
       const recordsForTask = getQuizTaskRecords(task);
       if (recordsForTask.length >= (task.count ?? 0)) {
@@ -1348,6 +1431,9 @@ export default function App() {
           ? `${task.description} 本轮会抽 ${day6WordPlan.testedCount} 个已考词、${day6WordPlan.untestedCount} 个未考七年级词、${day6WordPlan.readingCount} 个阅读词。已考可选 ${testedCoreWords.length} 个。`
           : "还没有可用的已考词。";
       }
+      if (task.source === "latestAnswers") {
+        return day9LatestWords.length > 0 ? `${task.description} 本轮会抽 ${day9LatestWords.length} 个最新词。` : "还没有可用的最新词。";
+      }
       return task.description;
     }
 
@@ -1381,6 +1467,10 @@ export default function App() {
     }
     if (task.type === "quiz" && task.id === "day7-vocab-mixed") {
       if (day7QuizInProgress) return "继续";
+      return isTaskItemComplete(task) ? "再做一次" : "开始";
+    }
+    if (task.type === "quiz" && task.id === "day9-vocab-latest") {
+      if (day9QuizInProgress) return "继续";
       return isTaskItemComplete(task) ? "再做一次" : "开始";
     }
     if (task.type === "script-reading") return isTaskItemComplete(task) ? "再读一遍" : "开始熟读";
@@ -1605,6 +1695,31 @@ export default function App() {
     });
   }
 
+  function startDay9VocabularyTask() {
+    if (day9QuizInProgress) {
+      setActiveSection("taskDetail");
+      setActiveDayId("day9");
+      setMode("choice");
+      setSpellingDifficulty("medium");
+      setQuestionCount(Math.min(DAY9_MIXED_COUNT, queue.length || day9LatestWords.length));
+      setSelected("");
+      setTyped("");
+      setFeedback("idle");
+      return;
+    }
+
+    if (day9LatestWords.length === 0) return;
+    startQuiz("choice", {
+      difficulty: "medium",
+      count: DAY9_MIXED_COUNT,
+      section: "taskDetail",
+      sessionId: `day9-vocab-latest-${createSessionId()}`,
+      taskId: "day9-vocab-latest",
+      dayId: "day9",
+      sourceWords: day9LatestWords
+    });
+  }
+
   function startTaskItem(task: DailyTaskItem) {
     if (task.id === "day1-spelling") {
       startDay1();
@@ -1632,6 +1747,10 @@ export default function App() {
     }
     if (task.id === "day7-vocab-mixed") {
       startDay7VocabularyTask();
+      return;
+    }
+    if (task.id === "day9-vocab-latest") {
+      startDay9VocabularyTask();
       return;
     }
     if (task.passageSlug && task.responseMode) {
@@ -1779,6 +1898,10 @@ export default function App() {
     }
     if (activeTaskId === "day7-vocab-mixed") {
       startDay7VocabularyTask();
+      return;
+    }
+    if (activeTaskId === "day9-vocab-latest") {
+      startDay9VocabularyTask();
       return;
     }
     startQuiz(mode, { difficulty: spellingDifficulty, count: questionCount, section: activeSection });
@@ -2005,7 +2128,8 @@ export default function App() {
                   (task.id === "day4-vocab-mixed" && day4ChoiceWords.length === 0 && !day4QuizInProgress) ||
                   (task.id === "day5-vocab-mixed" && day5ChoiceWords.length === 0 && !day5QuizInProgress) ||
                   (task.id === "day6-vocab-mixed" && day6ChoiceWords.length === 0 && !day6QuizInProgress) ||
-                  (task.id === "day7-vocab-mixed" && day6ChoiceWords.length === 0 && !day7QuizInProgress);
+                  (task.id === "day7-vocab-mixed" && day6ChoiceWords.length === 0 && !day7QuizInProgress) ||
+                  (task.id === "day9-vocab-latest" && day9LatestWords.length === 0 && !day9QuizInProgress);
                 return (
                   <div className={complete ? "task-item-card complete" : "task-item-card"} key={task.id}>
                     <div className="task-item-main">
