@@ -956,6 +956,28 @@ p {
   line-height: 1.2;
 }
 
+.word-attempt-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  max-width: 760px;
+  margin: -8px 0 20px;
+  color: #5c695f;
+  font-size: 0.86rem;
+  font-weight: 800;
+}
+
+.word-attempt-stats span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  border: 1px solid #dfd6c7;
+  border-radius: 999px;
+  padding: 4px 9px;
+  background: #fffdf8;
+  white-space: nowrap;
+}
+
 .choice-grid {
   display: grid;
   grid-template-columns: 1fr;

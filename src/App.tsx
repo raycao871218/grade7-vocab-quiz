@@ -598,6 +598,15 @@ function getEffectiveQuizMode(taskId: string | undefined, item: VocabItem | unde
   return defaultMode;
 }
 
+function countEndingStreak(results: boolean[], expected: boolean): number {
+  let count = 0;
+  for (let index = results.length - 1; index >= 0; index -= 1) {
+    if (results[index] !== expected) break;
+    count += 1;
+  }
+  return count;
+}
+
 function normalizeAnswer(value: string): string {
   return value.trim().toLowerCase().replace(/\s+/g, " ");
 }
@@ -955,6 +964,26 @@ export default function App() {
   const progress = queue.length === 0 ? 0 : Math.min(100, Math.round((index / queue.length) * 100));
   const mistakes = records.filter((record) => !record.correct);
   const allWords = useMemo(() => uniqueWords(words), [words]);
+  const currentWordStats = useMemo(() => {
+    if (!current) return null;
+    const historicalResults = savedRecords
+      .filter((record) => record.wordId === current.id && record.session_id !== sessionId)
+      .sort((left, right) => new Date(left.answeredAt).getTime() - new Date(right.answeredAt).getTime())
+      .map((record) => record.correct);
+    const currentSessionResults = records.filter((record) => record.item.id === current.id).map((record) => record.correct);
+    const completedResults = [...historicalResults, ...currentSessionResults];
+    const isCurrentQuestionAnswered = currentSessionResults.length > 0;
+    const attemptNumber = completedResults.length + (isCurrentQuestionAnswered ? 0 : 1);
+    const correctAttempts = completedResults.filter(Boolean).length;
+    const wrongAttempts = completedResults.length - correctAttempts;
+    return {
+      attemptNumber,
+      correctAttempts,
+      wrongAttempts,
+      consecutiveCorrect: countEndingStreak(completedResults, true),
+      consecutiveWrong: countEndingStreak(completedResults, false)
+    };
+  }, [current, records, savedRecords, sessionId]);
   const activeDailyTask = findDailyTask(activeDayId) ?? dailyTasks[0];
   const evaluationsByTaskId = useMemo(() => {
     const entries = new Map<string, TaskEvaluation>();
@@ -2620,6 +2649,15 @@ export default function App() {
                   <span>{current.english}</span>
                   {current.phonetic && <small className="word-phonetic">{current.phonetic}</small>}
                 </h2>
+                {currentWordStats && (
+                  <div className="word-attempt-stats" aria-label="这个单词的历史答题记录">
+                    <span>第 {currentWordStats.attemptNumber} 次考这个词</span>
+                    <span>已错 {currentWordStats.wrongAttempts} 次</span>
+                    <span>已对 {currentWordStats.correctAttempts} 次</span>
+                    <span>连续错 {currentWordStats.consecutiveWrong} 次</span>
+                    <span>连续对 {currentWordStats.consecutiveCorrect} 次</span>
+                  </div>
+                )}
                 <div className="choice-grid">
                   {choices.map((choice) => (
                     <button
@@ -2667,6 +2705,15 @@ export default function App() {
                 )}
                 {(effectiveMode === "spelling" || effectiveMode === "typing") && spellingDifficulty === "easy" && (
                   <p className="spelling-mask">{makeMask(current.english)}</p>
+                )}
+                {currentWordStats && (
+                  <div className="word-attempt-stats" aria-label="这个单词的历史答题记录">
+                    <span>第 {currentWordStats.attemptNumber} 次考这个词</span>
+                    <span>已错 {currentWordStats.wrongAttempts} 次</span>
+                    <span>已对 {currentWordStats.correctAttempts} 次</span>
+                    <span>连续错 {currentWordStats.consecutiveWrong} 次</span>
+                    <span>连续对 {currentWordStats.consecutiveCorrect} 次</span>
+                  </div>
                 )}
                 <input
                   autoFocus
