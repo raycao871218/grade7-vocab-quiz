@@ -119,7 +119,12 @@ const DAY6_UNTESTED_GRADE7_WORD_COUNT = 20;
 const DAY6_READING_WORD_COUNT = 5;
 const DAY9_MIXED_COUNT = 50;
 const READING_CHECK_COUNT = 5;
+const DEFAULT_VOCAB_LIST_SLUG = "grade7-all-renjiao";
 const READING_SOURCE_SLUGS = new Set(["reading-peppa", "reading-aesop"]);
+const readingSourceTitles: Record<string, string> = {
+  "reading-peppa": "Muddy Puddles",
+  "reading-aesop": "The North Wind & the Sun"
+};
 type TaskItemType = "quiz" | "script-reading" | "translation" | "rest";
 
 type DailyTaskItem = {
@@ -505,6 +510,27 @@ function isGrade7CoreWord(item: VocabItem): boolean {
   return !isReadingVocabWord(item);
 }
 
+function getVocabSourceLabel(item: VocabItem): string {
+  const origin = item.origin;
+  if (!origin) return "出处待补";
+  if (origin.sourceListSlug && READING_SOURCE_SLUGS.has(origin.sourceListSlug)) {
+    return readingSourceTitles[origin.sourceListSlug] ?? origin.label ?? "阅读文章";
+  }
+  return origin.label || "出处待补";
+}
+
+function getVocabTags(item: VocabItem): string[] {
+  const tags = new Set<string>();
+  if (isReadingVocabWord(item)) {
+    tags.add("阅读词");
+  } else {
+    tags.add("高频词");
+  }
+  if (item.origin?.semester.includes("上")) tags.add("七上");
+  if (item.origin?.semester.includes("下")) tags.add("七下");
+  return [...tags];
+}
+
 function isMixedVocabTask(taskId: string | undefined): boolean {
   return (
     taskId === "day4-vocab-mixed" ||
@@ -784,7 +810,7 @@ export default function App() {
   const readingStartedAt = useRef<number | null>(null);
 
   useEffect(() => {
-    fetch("/api/vocab")
+    fetch(`/api/vocab?list_slug=${encodeURIComponent(DEFAULT_VOCAB_LIST_SLUG)}`)
       .then(async (response) => {
         const data = (await response.json()) as VocabResponse;
         if (!response.ok || data.error) throw new Error(data.error ?? "读取词表失败");
@@ -2311,7 +2337,7 @@ export default function App() {
             <div className="section-heading">
               <p className="prompt-label">单词本</p>
               <h2>选择难度和方向</h2>
-              <p>全部词汇统一归类为高频词，不再区分加测词。</p>
+              <p>题目会分别显示可追查的出处和词汇属性标签。</p>
             </div>
             <div className="difficulty-panel light-panel">
               <p>难度</p>
@@ -2441,7 +2467,12 @@ export default function App() {
               <span>
                 第 {index + 1} / {queue.length} 题
               </span>
-              <span>{current.origin?.label || "高频词"}</span>
+              <span className="vocab-origin">
+                <strong>{getVocabSourceLabel(current)}</strong>
+                {getVocabTags(current).map((tag) => (
+                  <small key={tag}>{tag}</small>
+                ))}
+              </span>
             </div>
 
             {effectiveMode === "choice" && (

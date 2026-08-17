@@ -887,8 +887,41 @@ p {
   display: flex;
   justify-content: space-between;
   gap: 16px;
+  align-items: flex-start;
   color: #667367;
   font-size: 0.92rem;
+}
+
+.vocab-origin {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+  max-width: min(420px, 65%);
+  text-align: right;
+}
+
+.vocab-origin strong,
+.vocab-origin small {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  border-radius: 999px;
+  padding: 3px 8px;
+}
+
+.vocab-origin strong {
+  background: #eef3ed;
+  color: #24352c;
+  font-weight: 900;
+  overflow-wrap: anywhere;
+}
+
+.vocab-origin small {
+  background: #f4ead9;
+  color: #7d6241;
+  font-size: 0.78rem;
+  font-weight: 850;
 }
 
 .prompt-label {
@@ -1080,6 +1113,16 @@ p {
 }
 
 @media (max-width: 719px) {
+  .quiz-topline {
+    flex-direction: column;
+  }
+
+  .vocab-origin {
+    justify-content: flex-start;
+    max-width: 100%;
+    text-align: left;
+  }
+
   .task-item-card,
   .task-item-actions {
     grid-template-columns: 1fr;

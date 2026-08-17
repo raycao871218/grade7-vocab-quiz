@@ -9,6 +9,11 @@ from .config import get_database_kwargs
 
 pool = ConnectionPool(kwargs=get_database_kwargs(), min_size=1, max_size=5, open=False)
 
+READING_SOURCE_TITLES = {
+    "reading-peppa": "Muddy Puddles",
+    "reading-aesop": "The North Wind & the Sun",
+}
+
 
 def decode_db_text(value: str | bytes | memoryview | None) -> str:
     if value is None:
@@ -49,8 +54,11 @@ def parse_vocab_origin(
     semester = parts.get("semester") or fallback_semester_text
     page = parts.get("page", "")
     source_slug = parts.get("source", "")
-    semester_label = {"上学期": "七上", "下学期": "七下", "全年": "全年"}.get(semester, semester)
-    origin_label = " · ".join(part for part in [semester_label, f"p.{page}" if page else ""] if part)
+    semester_label = {"上学期": "七年级上册", "下学期": "七年级下册", "全年": "七年级全年"}.get(semester, semester)
+    if source_slug in READING_SOURCE_TITLES:
+        origin_label = READING_SOURCE_TITLES[source_slug]
+    else:
+        origin_label = " · ".join(part for part in [semester_label, f"p.{page}" if page else ""] if part)
 
     return {
         "semester": semester,
