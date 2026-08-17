@@ -118,6 +118,7 @@ const DAY6_TESTED_WORD_COUNT = 25;
 const DAY6_UNTESTED_GRADE7_WORD_COUNT = 20;
 const DAY6_READING_WORD_COUNT = 5;
 const DAY9_MIXED_COUNT = 50;
+const DAY10_MIXED_COUNT = 50;
 const READING_CHECK_COUNT = 5;
 const DEFAULT_VOCAB_LIST_SLUG = "grade7-all-renjiao";
 const READING_SOURCE_SLUGS = new Set(["reading-peppa", "reading-aesop"]);
@@ -146,7 +147,8 @@ type DailyTaskItem = {
     | "day3ChoiceAnswers"
     | "day4ChoiceAnswers"
     | "testedAnswers"
-    | "latestAnswers";
+    | "latestAnswers"
+    | "frequentMistakes";
 };
 
 type DailyTask = {
@@ -475,6 +477,45 @@ const dailyTasks: DailyTask[] = [
         source: "latestAnswers"
       }
     ]
+  },
+  {
+    id: "day10",
+    label: "Day 10",
+    title: "前三段默写 + 跟电视练读 + 错词复盘",
+    description: "默写 The North Wind and the Sun 前三段，跟电视练 Mr. Dinosaur is Lost，再集中处理反复错的单词。",
+    unlockAt: "2026-08-17T20:00:00+08:00",
+    items: [
+      {
+        id: "day10-north-first-three-dictation",
+        type: "script-reading",
+        label: "第一项",
+        title: "默写 The North Wind and the Sun 前三段",
+        description: "默写前三段；Sun、Wind、saw、wearing 这几个词必须大声、正确地读出来。",
+        passageSlug: "north-wind-sun-original",
+        responseMode: "complete"
+      },
+      {
+        id: "day10-dinosaur-tv-practice",
+        type: "script-reading",
+        label: "第二项",
+        title: "对着电视练 Mr. Dinosaur is Lost",
+        description: "明天会考 Mr. Dinosaur is Lost。必须对着电视跟读练习；如果不参考电视，就不算完成。",
+        passageSlug: "peppa-pig-mr-dinosaur-is-lost",
+        responseMode: "complete"
+      },
+      {
+        id: "day10-vocab-mistakes",
+        type: "quiz",
+        label: "第三项",
+        title: "高频错词 50 题",
+        description: "再做 50 道单词题，今天主要以频繁出错的单词为主；错过的词必须复盘。",
+        mode: "choice",
+        difficulty: "medium",
+        count: DAY10_MIXED_COUNT,
+        sessionPrefix: "day10-vocab-mistakes-",
+        source: "frequentMistakes"
+      }
+    ]
   }
 ] as const satisfies DailyTask[];
 
@@ -537,12 +578,20 @@ function isMixedVocabTask(taskId: string | undefined): boolean {
     taskId === "day5-vocab-mixed" ||
     taskId === "day6-vocab-mixed" ||
     taskId === "day7-vocab-mixed" ||
-    taskId === "day9-vocab-latest"
+    taskId === "day9-vocab-latest" ||
+    taskId === "day10-vocab-mistakes"
   );
 }
 
 function getEffectiveQuizMode(taskId: string | undefined, item: VocabItem | undefined, itemIndex: number, defaultMode: QuizMode): QuizMode {
-  if ((taskId === "day6-vocab-mixed" || taskId === "day7-vocab-mixed" || taskId === "day9-vocab-latest") && item && isReadingVocabWord(item)) {
+  if (
+    (taskId === "day6-vocab-mixed" ||
+      taskId === "day7-vocab-mixed" ||
+      taskId === "day9-vocab-latest" ||
+      taskId === "day10-vocab-mistakes") &&
+    item &&
+    isReadingVocabWord(item)
+  ) {
     return "choice";
   }
   if (isMixedVocabTask(taskId) && item) return itemIndex % 2 === 0 ? "choice" : "typing";
@@ -922,6 +971,7 @@ export default function App() {
   const day6QuizInProgress = activeTaskId === "day6-vocab-mixed" && queue.length > 0 && index < queue.length;
   const day7QuizInProgress = activeTaskId === "day7-vocab-mixed" && queue.length > 0 && index < queue.length;
   const day9QuizInProgress = activeTaskId === "day9-vocab-latest" && queue.length > 0 && index < queue.length;
+  const day10QuizInProgress = activeTaskId === "day10-vocab-mistakes" && queue.length > 0 && index < queue.length;
   const effectiveMode = getEffectiveQuizMode(activeTaskId, current, index, mode);
   const day1ProgressText = day1InProgress ? `已做 ${Math.min(index, queue.length)} / ${queue.length} 题` : "1 个小任务 · 100 题";
   const showQuizProgress = queue.length > 0 && activeSection !== "overview" && activeSection !== "review";
@@ -1149,6 +1199,46 @@ export default function App() {
 
     return uniqueWords([...latestAnsweredWords, ...fallbackWords]).slice(0, DAY9_MIXED_COUNT);
   }, [allWords, savedRecords]);
+  const day10MistakeWords = useMemo(() => {
+    const mistakeStats = new Map<number, { count: number; latestAt: number }>();
+    savedRecords.forEach((record) => {
+      if (record.correct) return;
+      const currentStats = mistakeStats.get(record.wordId) ?? { count: 0, latestAt: 0 };
+      currentStats.count += 1;
+      currentStats.latestAt = Math.max(currentStats.latestAt, new Date(record.answeredAt).getTime());
+      mistakeStats.set(record.wordId, currentStats);
+    });
+
+    const selectedIds = new Set<number>();
+    const mistakeWords = [...mistakeStats.entries()]
+      .sort((left, right) => right[1].count - left[1].count || right[1].latestAt - left[1].latestAt)
+      .map(([wordId]) => allWords.find((item) => item.id === wordId))
+      .filter((item): item is VocabItem => Boolean(item))
+      .filter((item) => {
+        if (selectedIds.has(item.id)) return false;
+        selectedIds.add(item.id);
+        return true;
+      });
+
+    const latestAnsweredFallback = [...savedRecords]
+      .sort((a, b) => new Date(b.answeredAt).getTime() - new Date(a.answeredAt).getTime())
+      .map((record) => allWords.find((item) => item.id === record.wordId))
+      .filter((item): item is VocabItem => Boolean(item))
+      .filter((item) => {
+        if (selectedIds.has(item.id)) return false;
+        selectedIds.add(item.id);
+        return true;
+      });
+
+    const untouchedFallback =
+      mistakeWords.length + latestAnsweredFallback.length >= DAY10_MIXED_COUNT
+        ? []
+        : allWords
+            .filter((item) => !selectedIds.has(item.id))
+            .slice(0, DAY10_MIXED_COUNT - mistakeWords.length - latestAnsweredFallback.length);
+
+    return uniqueWords([...mistakeWords, ...latestAnsweredFallback, ...untouchedFallback]).slice(0, DAY10_MIXED_COUNT);
+  }, [allWords, savedRecords]);
   const wordbookCountOptions = useMemo(() => {
     const options = [10, 20, 30, 50, 100, allWords.length].filter((count) => count > 0 && count <= allWords.length);
     return [...new Set(options)].sort((a, b) => a - b);
@@ -1258,6 +1348,8 @@ export default function App() {
                     ? "Day 7 中英混合单词题"
                     : reviewSessionId.startsWith("day9-vocab-latest-")
                       ? "Day 9 最新 50 词中英混合题"
+                    : reviewSessionId.startsWith("day10-vocab-mistakes-")
+                      ? "Day 10 高频错词中英混合题"
                     : `${modeLabels[first.mode]}${first.difficulty ? ` · ${difficultyLabels[first.difficulty]}` : ""}`;
 
         return {
@@ -1423,6 +1515,9 @@ export default function App() {
     if (task.type === "quiz" && task.id === "day9-vocab-latest" && day9QuizInProgress) {
       return `进行中 · 已做 ${Math.min(index, queue.length)} / ${queue.length} 题`;
     }
+    if (task.type === "quiz" && task.id === "day10-vocab-mistakes" && day10QuizInProgress) {
+      return `进行中 · 已做 ${Math.min(index, queue.length)} / ${queue.length} 题`;
+    }
     if (task.type === "quiz") {
       const recordsForTask = getQuizTaskRecords(task);
       if (recordsForTask.length >= (task.count ?? 0)) {
@@ -1459,6 +1554,11 @@ export default function App() {
       }
       if (task.source === "latestAnswers") {
         return day9LatestWords.length > 0 ? `${task.description} 本轮会抽 ${day9LatestWords.length} 个最新词。` : "还没有可用的最新词。";
+      }
+      if (task.source === "frequentMistakes") {
+        return day10MistakeWords.length > 0
+          ? `${task.description} 本轮会抽 ${day10MistakeWords.length} 个错词优先词。`
+          : "还没有可用的错词记录。";
       }
       return task.description;
     }
@@ -1497,6 +1597,10 @@ export default function App() {
     }
     if (task.type === "quiz" && task.id === "day9-vocab-latest") {
       if (day9QuizInProgress) return "继续";
+      return isTaskItemComplete(task) ? "再做一次" : "开始";
+    }
+    if (task.type === "quiz" && task.id === "day10-vocab-mistakes") {
+      if (day10QuizInProgress) return "继续";
       return isTaskItemComplete(task) ? "再做一次" : "开始";
     }
     if (task.type === "script-reading") return isTaskItemComplete(task) ? "再读一遍" : "开始熟读";
@@ -1746,6 +1850,31 @@ export default function App() {
     });
   }
 
+  function startDay10VocabularyTask() {
+    if (day10QuizInProgress) {
+      setActiveSection("taskDetail");
+      setActiveDayId("day10");
+      setMode("choice");
+      setSpellingDifficulty("medium");
+      setQuestionCount(Math.min(DAY10_MIXED_COUNT, queue.length || day10MistakeWords.length));
+      setSelected("");
+      setTyped("");
+      setFeedback("idle");
+      return;
+    }
+
+    if (day10MistakeWords.length === 0) return;
+    startQuiz("choice", {
+      difficulty: "medium",
+      count: DAY10_MIXED_COUNT,
+      section: "taskDetail",
+      sessionId: `day10-vocab-mistakes-${createSessionId()}`,
+      taskId: "day10-vocab-mistakes",
+      dayId: "day10",
+      sourceWords: day10MistakeWords
+    });
+  }
+
   function startTaskItem(task: DailyTaskItem) {
     if (task.id === "day1-spelling") {
       startDay1();
@@ -1777,6 +1906,10 @@ export default function App() {
     }
     if (task.id === "day9-vocab-latest") {
       startDay9VocabularyTask();
+      return;
+    }
+    if (task.id === "day10-vocab-mistakes") {
+      startDay10VocabularyTask();
       return;
     }
     if (task.passageSlug && task.responseMode) {
@@ -1928,6 +2061,10 @@ export default function App() {
     }
     if (activeTaskId === "day9-vocab-latest") {
       startDay9VocabularyTask();
+      return;
+    }
+    if (activeTaskId === "day10-vocab-mistakes") {
+      startDay10VocabularyTask();
       return;
     }
     startQuiz(mode, { difficulty: spellingDifficulty, count: questionCount, section: activeSection });
@@ -2155,7 +2292,8 @@ export default function App() {
                   (task.id === "day5-vocab-mixed" && day5ChoiceWords.length === 0 && !day5QuizInProgress) ||
                   (task.id === "day6-vocab-mixed" && day6ChoiceWords.length === 0 && !day6QuizInProgress) ||
                   (task.id === "day7-vocab-mixed" && day6ChoiceWords.length === 0 && !day7QuizInProgress) ||
-                  (task.id === "day9-vocab-latest" && day9LatestWords.length === 0 && !day9QuizInProgress);
+                  (task.id === "day9-vocab-latest" && day9LatestWords.length === 0 && !day9QuizInProgress) ||
+                  (task.id === "day10-vocab-mistakes" && day10MistakeWords.length === 0 && !day10QuizInProgress);
                 return (
                   <div className={complete ? "task-item-card complete" : "task-item-card"} key={task.id}>
                     <div className="task-item-main">
