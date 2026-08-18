@@ -537,13 +537,78 @@ INSERT INTO reading_passages (slug, title, source, body, notes)
 VALUES (
   'peppa-pig-best-friend',
   'Best Friend',
-  'Peppa Pig episode 3 script pending from user',
-  $$Best Friend script text is pending. The original script will be added after it is provided.$$,
-  $$best friend 最好的朋友
-friend 朋友
-play 玩
-together 一起
-share 分享$$
+  'Peppa Pig episode 3 original script provided by user',
+  $$Narrator: Peppa is waiting for her best friend, Suzy Sheep.
+Peppa: Hello, Suzy.
+Suzy: Hello, Peppa.
+Narrator: Suzy Sheep has come to play with Peppa.
+Narrator: Peppa loves Suzy. Suzy loves Peppa. They are best friends.
+Mummy Pig: Peppa, why don’t you and Suzy go and play in your bedroom?
+Peppa: Yes, Mummy.
+Narrator: George wants to play, too.
+Narrator: Peppa and Suzy love playing in Peppa’s bedroom.
+Narrator: So does George.
+Peppa: No, George. This game is just for big girls.
+Peppa: Go and play with your own toys.
+Narrator: Peppa and Suzy want to play on their own.
+Peppa: I’m a tiny little fairy princess.
+Peppa: I’m going to wave my magic wand, and turn you into a frog!
+Narrator: George doesn’t like playing on his own.
+Narrator: George wants to play, too.
+Peppa: No, George! I’m playing with Suzy.
+Peppa: You’ll have to play somewhere else.
+Narrator: George wants to play with Peppa. He feels a bit lonely.
+Mummy Pig: George, I need some help! I’m making chocolate chip cookies.
+Mummy Pig: Someone needs to lick out the bowl.
+Narrator: George likes helping Mummy make cookies. But he likes playing with Peppa more.
+Suzy: I want to be a nurse.
+Peppa: I want to be a doctor.
+Suzy: But who’s going to be the sick person?
+Peppa: George!
+Narrator: Peppa and Suzy love playing doctors and nurses.
+Narrator: So does George.
+Narrator: Peppa listens to George’s chest.
+Peppa: Now, George, take a big breath in, then cough.
+Peppa: Hmm, I think your heart’s a bit loose. I’ll put a plaster on it.
+Suzy: Open wide, please.
+Narrator: Suzy takes George’s temperature.
+Suzy: Oh dear, you’re very very hot.
+Suzy: I think you have to stay in bed for three years.
+Narrator: Daddy Pig has come to find George.
+Daddy Pig: Oh, no! What’s wrong with George?
+Peppa: Don’t worry, Daddy. It’s only a game.
+Peppa: George is our patient.
+Daddy Pig: Oh, I see.
+Daddy Pig: Can the patient have a visitor?
+Peppa: Just for a little while.
+Peppa: He might get tired.
+Peppa & Suzy: Cookies!
+Mummy Pig: Yes, they’re for George. They’re his medicine to make him feel better.
+Daddy Pig: Um, excuse me, doctor. Can you help me? I have a sore tummy.
+Daddy Pig: That tickles!
+Peppa: I can hear it rumbling.
+Peppa: I think you’re hungry, Daddy.
+Daddy Pig: Then I think I need lots of cookies to make me better.
+Mummy Pig: And me!
+Peppa: And me!
+Suzy: And me!$$,
+  $$on one’s own 独自地
+tiny 微小的
+fairy 仙女
+princess 公主
+wave 挥舞
+magic wand 魔法棒
+lick 舔
+chest 胸部
+loose 宽松的
+plaster 石膏
+take a big breath in 深吸一口气
+cough 咳嗽
+take one’s temperature 给某人量体温
+tummy 肚子
+medicine 药
+tickle 使发痒
+rumble 隆隆作响$$
 )
 ON CONFLICT (slug) DO UPDATE
   SET title = EXCLUDED.title,
