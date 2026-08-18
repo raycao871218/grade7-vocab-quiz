@@ -535,6 +535,25 @@ ON CONFLICT (slug) DO UPDATE
 
 INSERT INTO reading_passages (slug, title, source, body, notes)
 VALUES (
+  'peppa-pig-best-friend',
+  'Best Friend',
+  'Peppa Pig episode 3 script pending from user',
+  $$Best Friend script text is pending. The original script will be added after it is provided.$$,
+  $$best friend 最好的朋友
+friend 朋友
+play 玩
+together 一起
+share 分享$$
+)
+ON CONFLICT (slug) DO UPDATE
+  SET title = EXCLUDED.title,
+      source = EXCLUDED.source,
+      body = EXCLUDED.body,
+      notes = EXCLUDED.notes,
+      updated_at = now();
+
+INSERT INTO reading_passages (slug, title, source, body, notes)
+VALUES (
   'peppa-pig-muddy-puddles',
   'Muddy Puddles',
   'Peppa Pig episode script provided by user',
