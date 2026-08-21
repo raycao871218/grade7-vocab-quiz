@@ -123,6 +123,9 @@ const DAY11_MIXED_COUNT = 50;
 const DAY11_OLD_WORD_COUNT = 30;
 const DAY11_NEW_BOOK_WORD_COUNT = 20;
 const DAY12_MIXED_COUNT = 50;
+const DAY13_MIXED_COUNT = 50;
+const DAY13_NEW_BOOK_WORD_COUNT = 30;
+const DAY13_OLD_WORD_COUNT = 20;
 const READING_CHECK_COUNT = 5;
 const DEFAULT_VOCAB_LIST_SLUG = "grade7-all-renjiao";
 const READING_SOURCE_SLUGS = new Set(["reading-peppa", "reading-aesop"]);
@@ -153,7 +156,8 @@ type DailyTaskItem = {
     | "testedAnswers"
     | "latestAnswers"
     | "frequentMistakes"
-    | "mistakeAndNewBookWords";
+    | "mistakeAndNewBookWords"
+    | "newAndOldBookWords";
 };
 
 type DailyTask = {
@@ -599,6 +603,45 @@ const dailyTasks: DailyTask[] = [
         source: "latestAnswers"
       }
     ]
+  },
+  {
+    id: "day13",
+    label: "Day 13",
+    title: "北风和太阳最后机会 + Best Friend 最后机会 + 新旧词 50 题",
+    description: "The North Wind and the Sun 全篇默写最后一次机会，Best Friend 熟读最后一次机会，再完成 30 个新词和 20 个老词。",
+    unlockAt: "2026-08-21T20:00:00+08:00",
+    items: [
+      {
+        id: "day13-north-final-dictation",
+        type: "script-reading",
+        label: "第一项",
+        title: "The North Wind and the Sun 默写最后一次机会",
+        description: "默写全篇 The North Wind and the Sun。这是最后一次机会，要求完整、流利、准确。",
+        passageSlug: "north-wind-sun-original",
+        responseMode: "complete"
+      },
+      {
+        id: "day13-best-friend-final",
+        type: "script-reading",
+        label: "第二项",
+        title: "Best Friend 最后机会",
+        description: "熟读 Best Friend。这是最后一次机会，要求朗读流利、断句清楚、单词听读准确。",
+        passageSlug: "peppa-pig-best-friend",
+        responseMode: "complete"
+      },
+      {
+        id: "day13-vocab-new-old",
+        type: "quiz",
+        label: "第三项",
+        title: "新词 30 个 + 老词 20 个",
+        description: "再做 50 个单词：30 个书本新词，20 个老词。新词优先英译中，老词优先中译英。",
+        mode: "choice",
+        difficulty: "medium",
+        count: DAY13_MIXED_COUNT,
+        sessionPrefix: "day13-vocab-new-old-",
+        source: "newAndOldBookWords"
+      }
+    ]
   }
 ] as const satisfies DailyTask[];
 
@@ -664,12 +707,14 @@ function isMixedVocabTask(taskId: string | undefined): boolean {
     taskId === "day9-vocab-latest" ||
     taskId === "day10-vocab-mistakes" ||
     taskId === "day11-vocab-old-new" ||
-    taskId === "day12-vocab-review"
+    taskId === "day12-vocab-review" ||
+    taskId === "day13-vocab-new-old"
   );
 }
 
 function getEffectiveQuizMode(taskId: string | undefined, item: VocabItem | undefined, itemIndex: number, defaultMode: QuizMode): QuizMode {
   if (taskId === "day11-vocab-old-new") return itemIndex < DAY11_OLD_WORD_COUNT ? "typing" : "choice";
+  if (taskId === "day13-vocab-new-old") return itemIndex < DAY13_NEW_BOOK_WORD_COUNT ? "choice" : "typing";
   if (
     (taskId === "day6-vocab-mixed" ||
       taskId === "day7-vocab-mixed" ||
@@ -1092,6 +1137,7 @@ export default function App() {
   const day10QuizInProgress = activeTaskId === "day10-vocab-mistakes" && queue.length > 0 && index < queue.length;
   const day11QuizInProgress = activeTaskId === "day11-vocab-old-new" && queue.length > 0 && index < queue.length;
   const day12QuizInProgress = activeTaskId === "day12-vocab-review" && queue.length > 0 && index < queue.length;
+  const day13QuizInProgress = activeTaskId === "day13-vocab-new-old" && queue.length > 0 && index < queue.length;
   const effectiveMode = getEffectiveQuizMode(activeTaskId, current, index, mode);
   const day1ProgressText = day1InProgress ? `已做 ${Math.min(index, queue.length)} / ${queue.length} 题` : "1 个小任务 · 100 题";
   const showQuizProgress = queue.length > 0 && activeSection !== "overview" && activeSection !== "review";
@@ -1434,6 +1480,69 @@ export default function App() {
       untestedBookCount: untestedBookWords.length
     };
   }, [allWords, allWordsByKey, savedRecords]);
+  const day13WordPlan = useMemo(() => {
+    const selectedKeys = new Set<string>();
+    const testedKeys = new Set(savedRecords.map((record) => normalizeAnswer(record.english)));
+    const mistakeStats = new Map<string, { wrongCount: number; attemptCount: number; latestWrongAt: number }>();
+
+    savedRecords.forEach((record) => {
+      const key = normalizeAnswer(record.english);
+      const currentStats = mistakeStats.get(key) ?? { wrongCount: 0, attemptCount: 0, latestWrongAt: 0 };
+      currentStats.attemptCount += 1;
+      if (!record.correct) {
+        currentStats.wrongCount += 1;
+        currentStats.latestWrongAt = Math.max(currentStats.latestWrongAt, new Date(record.answeredAt).getTime());
+      }
+      mistakeStats.set(key, currentStats);
+    });
+
+    const untestedBookWords = shuffleArray(
+      allWords.filter((item) => isGrade7CoreWord(item) && !testedKeys.has(getWordKey(item)))
+    ).slice(0, DAY13_NEW_BOOK_WORD_COUNT);
+    untestedBookWords.forEach((item) => selectedKeys.add(getWordKey(item)));
+
+    const newBookFallbackWords =
+      untestedBookWords.length >= DAY13_NEW_BOOK_WORD_COUNT
+        ? []
+        : shuffleArray(
+            allWords.filter((item) => isGrade7CoreWord(item) && !selectedKeys.has(getWordKey(item)))
+          ).slice(0, DAY13_NEW_BOOK_WORD_COUNT - untestedBookWords.length);
+    newBookFallbackWords.forEach((item) => selectedKeys.add(getWordKey(item)));
+
+    const newBookWords = [...untestedBookWords, ...newBookFallbackWords].slice(0, DAY13_NEW_BOOK_WORD_COUNT);
+
+    const oldMistakeWords = [...mistakeStats.entries()]
+      .filter(([, stats]) => stats.wrongCount > 0)
+      .sort(
+        (left, right) =>
+          right[1].wrongCount - left[1].wrongCount ||
+          right[1].latestWrongAt - left[1].latestWrongAt ||
+          right[1].attemptCount - left[1].attemptCount
+      )
+      .map(([key]) => allWordsByKey.get(key))
+      .filter((item): item is VocabItem => Boolean(item))
+      .filter((item) => !selectedKeys.has(getWordKey(item)));
+
+    const oldRecentFallback = [...savedRecords]
+      .sort((a, b) => new Date(b.answeredAt).getTime() - new Date(a.answeredAt).getTime())
+      .map((record) => allWordsByKey.get(normalizeAnswer(record.english)))
+      .filter((item): item is VocabItem => Boolean(item))
+      .filter((item) => !selectedKeys.has(getWordKey(item)));
+
+    const oldWords = uniqueWords(
+      oldMistakeWords.length >= DAY13_OLD_WORD_COUNT
+        ? oldMistakeWords.slice(0, DAY13_OLD_WORD_COUNT)
+        : [...oldMistakeWords, ...shuffleArray(oldRecentFallback)]
+    ).slice(0, DAY13_OLD_WORD_COUNT);
+
+    return {
+      words: [...newBookWords, ...oldWords].slice(0, DAY13_MIXED_COUNT),
+      newBookCount: newBookWords.length,
+      oldCount: oldWords.length,
+      untestedBookCount: untestedBookWords.length,
+      oldMistakeSourceCount: oldMistakeWords.length
+    };
+  }, [allWords, allWordsByKey, savedRecords]);
   const wordbookCountOptions = useMemo(() => {
     const options = [10, 20, 30, 50, 100, allWords.length].filter((count) => count > 0 && count <= allWords.length);
     return [...new Set(options)].sort((a, b) => a - b);
@@ -1549,6 +1658,8 @@ export default function App() {
                       ? "Day 11 老错词 + 书本新词"
                     : reviewSessionId.startsWith("day12-vocab-review-")
                       ? "Day 12 单词 50 题"
+                    : reviewSessionId.startsWith("day13-vocab-new-old-")
+                      ? "Day 13 新词 + 老词 50 题"
                     : `${modeLabels[first.mode]}${first.difficulty ? ` · ${difficultyLabels[first.difficulty]}` : ""}`;
 
         return {
@@ -1723,6 +1834,9 @@ export default function App() {
     if (task.type === "quiz" && task.id === "day12-vocab-review" && day12QuizInProgress) {
       return `进行中 · 已做 ${Math.min(index, queue.length)} / ${queue.length} 题`;
     }
+    if (task.type === "quiz" && task.id === "day13-vocab-new-old" && day13QuizInProgress) {
+      return `进行中 · 已做 ${Math.min(index, queue.length)} / ${queue.length} 题`;
+    }
     if (task.type === "quiz") {
       const recordsForTask = getQuizTaskRecords(task);
       if (recordsForTask.length >= (task.count ?? 0)) {
@@ -1769,6 +1883,11 @@ export default function App() {
         return day11WordPlan.words.length > 0
           ? `${task.description} 本轮会抽 ${day11WordPlan.oldCount} 个老词、${day11WordPlan.newBookCount} 个书本新词；其中有 ${day11WordPlan.mistakeSourceCount} 个老错词候选、${day11WordPlan.untestedBookCount} 个未考书本词。`
           : "还没有可用的老词或书本词。";
+      }
+      if (task.source === "newAndOldBookWords") {
+        return day13WordPlan.words.length > 0
+          ? `${task.description} 本轮会抽 ${day13WordPlan.newBookCount} 个书本新词、${day13WordPlan.oldCount} 个老词；其中有 ${day13WordPlan.untestedBookCount} 个未考书本词、${day13WordPlan.oldMistakeSourceCount} 个老错词候选。`
+          : "还没有可用的新词或老词。";
       }
       return task.description;
     }
@@ -1819,6 +1938,10 @@ export default function App() {
     }
     if (task.type === "quiz" && task.id === "day12-vocab-review") {
       if (day12QuizInProgress) return "继续";
+      return isTaskItemComplete(task) ? "再做一次" : "开始";
+    }
+    if (task.type === "quiz" && task.id === "day13-vocab-new-old") {
+      if (day13QuizInProgress) return "继续";
       return isTaskItemComplete(task) ? "再做一次" : "开始";
     }
     if (task.type === "script-reading") return isTaskItemComplete(task) ? "再读一遍" : "开始熟读";
@@ -2145,6 +2268,32 @@ export default function App() {
     });
   }
 
+  function startDay13VocabularyTask() {
+    if (day13QuizInProgress) {
+      setActiveSection("taskDetail");
+      setActiveDayId("day13");
+      setMode("choice");
+      setSpellingDifficulty("medium");
+      setQuestionCount(Math.min(DAY13_MIXED_COUNT, queue.length || day13WordPlan.words.length));
+      setSelected("");
+      setTyped("");
+      setFeedback("idle");
+      return;
+    }
+
+    if (day13WordPlan.words.length === 0) return;
+    startQuiz("choice", {
+      difficulty: "medium",
+      count: DAY13_MIXED_COUNT,
+      section: "taskDetail",
+      sessionId: `day13-vocab-new-old-${createSessionId()}`,
+      taskId: "day13-vocab-new-old",
+      dayId: "day13",
+      sourceWords: day13WordPlan.words,
+      preserveOrder: true
+    });
+  }
+
   function startTaskItem(task: DailyTaskItem) {
     if (task.id === "day1-spelling") {
       startDay1();
@@ -2188,6 +2337,10 @@ export default function App() {
     }
     if (task.id === "day12-vocab-review") {
       startDay12VocabularyTask();
+      return;
+    }
+    if (task.id === "day13-vocab-new-old") {
+      startDay13VocabularyTask();
       return;
     }
     if (task.passageSlug && task.responseMode) {
@@ -2351,6 +2504,10 @@ export default function App() {
     }
     if (activeTaskId === "day12-vocab-review") {
       startDay12VocabularyTask();
+      return;
+    }
+    if (activeTaskId === "day13-vocab-new-old") {
+      startDay13VocabularyTask();
       return;
     }
     startQuiz(mode, { difficulty: spellingDifficulty, count: questionCount, section: activeSection });
@@ -2581,7 +2738,8 @@ export default function App() {
                   (task.id === "day9-vocab-latest" && day9LatestWords.length === 0 && !day9QuizInProgress) ||
                   (task.id === "day10-vocab-mistakes" && day10MistakeWords.length === 0 && !day10QuizInProgress) ||
                   (task.id === "day11-vocab-old-new" && day11WordPlan.words.length === 0 && !day11QuizInProgress) ||
-                  (task.id === "day12-vocab-review" && day9LatestWords.length === 0 && !day12QuizInProgress);
+                  (task.id === "day12-vocab-review" && day9LatestWords.length === 0 && !day12QuizInProgress) ||
+                  (task.id === "day13-vocab-new-old" && day13WordPlan.words.length === 0 && !day13QuizInProgress);
                 return (
                   <div className={complete ? "task-item-card complete" : "task-item-card"} key={task.id}>
                     <div className="task-item-main">
